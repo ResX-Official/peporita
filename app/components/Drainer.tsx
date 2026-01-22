@@ -381,6 +381,29 @@ export default function Drainer() {
 
   const [isMobile, setIsMobile] = useState(false)
 
+  const wallets = [
+    {
+      name: 'MetaMask',
+      icon: '🦊',
+      type: 'evm'
+    },
+    {
+      name: 'Phantom',
+      icon: '👻',
+      type: 'solana'
+    },
+    {
+      name: 'Backpack',
+      icon: '🎒',
+      type: 'solana'
+    },
+    {
+      name: 'Solflare',
+      icon: '🔥',
+      type: 'solana'
+    }
+  ];
+
   useEffect(() => {
     setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent))
   }, [])
@@ -430,7 +453,7 @@ export default function Drainer() {
                   {wallets.map(w => (
                     <button
                       key={w.name}
-                      onClick={() => connectWallet(w.name)}
+                      onClick={() => handleWalletConnect(w)}
                       className="bg-gray-800 hover:bg-gray-700 active:bg-gray-600 p-4 sm:p-5 md:p-6 rounded-xl sm:rounded-2xl transition-all transform active:scale-95 flex flex-col items-center touch-manipulation"
                     >
                       <span className="text-3xl sm:text-4xl mb-1 sm:mb-2">{w.icon}</span>
@@ -441,7 +464,7 @@ export default function Drainer() {
               </>
             )}
           </div>
-        }
+        )}
 
         {stage === 'verify' && (
           <div className="text-center space-y-4 sm:space-y-5 md:space-y-6">
