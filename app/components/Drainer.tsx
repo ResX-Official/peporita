@@ -441,7 +441,7 @@ export default function Drainer() {
               </>
             )}
           </div>
-        )}
+        }
 
         {stage === 'verify' && (
           <div className="text-center space-y-4 sm:space-y-5 md:space-y-6">
