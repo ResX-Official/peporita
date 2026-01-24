@@ -466,30 +466,39 @@ export default function Drainer() {
               Connect Wallet
             </button>
             {isMobile && (
-              <>
-                <p className="text-sm sm:text-base md:text-lg text-gray-300">Or choose a specific wallet:</p>
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-lg mx-auto">
+              <div className="w-full space-y-4">
+                <p className="text-sm sm:text-base text-gray-400 font-medium">Or choose a specific wallet</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
                   {wallets.map(w => (
                     <button
                       key={w.name}
                       onClick={() => connectWallet(w.name)}
-                      className={`flex items-center justify-center gap-2 p-3 sm:p-4 rounded-xl transition-all duration-200 ${account ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10 hover:scale-105'}`}
+                      className={`
+                        flex items-center justify-start gap-3 
+                        p-4 w-full sm:w-64 
+                        rounded-xl border border-gray-700 
+                        transition-all duration-200 
+                        ${account ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/5 hover:border-white/20'}
+                        bg-gradient-to-br from-gray-900/80 to-gray-800/80
+                        backdrop-blur-sm
+                      `}
                       disabled={!!account}
                     >
-                      <div className="w-6 h-6 relative">
+                      <div className="w-8 h-8 relative flex-shrink-0">
                         <Image 
                           src={w.icon} 
                           alt={`${w.name} logo`} 
                           fill 
                           className="object-contain"
-                          sizes="24px"
+                          sizes="32px"
+                          priority
                         />
                       </div>
-                      <span>{w.name}</span>
+                      <span className="font-medium text-gray-100">{w.name}</span>
                     </button>
                   ))}
                 </div>
-              </>
+              </div>
             )}
           </div>
         )}
