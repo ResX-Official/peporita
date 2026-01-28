@@ -478,14 +478,10 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
 
         {/* Token Info - Simplified */}
         <div className="bg-gray-800 rounded-xl p-4 mb-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-gray-400 text-sm">Token Price</p>
-              <p className="text-white font-medium">$0.0001</p>
-            </div>
-            <div>
+          <div className="grid grid-cols-1 gap-4">
+            <div className="text-center">
               <p className="text-gray-400 text-sm">Total Supply</p>
-              <p className="text-white font-medium">500M PEPO</p>
+              <p className="text-white font-medium">1B PEPO</p>
             </div>
           </div>
         </div>
@@ -525,13 +521,26 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
         </div>
 
         {/* Social Links */}
-        <div className="mt-6 pt-6 border-t border-gray-800 flex justify-center space-x-4">
-          <a href="#" className="text-gray-400 hover:text-white transition-colors">
-            <FaTwitter className="w-5 h-5" />
-          </a>
-          <a href="#" className="text-gray-400 hover:text-white transition-colors">
-            <FaTelegram className="w-5 h-5" />
-          </a>
+        <div className="mt-6 pt-6 border-t border-gray-800 space-y-3">
+          <p className="text-center text-gray-400 text-sm">Join our community</p>
+          <div className="flex justify-center space-x-6">
+            <a 
+              href="https://x.com/PeporitaOnSol" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <FaTwitter className="w-6 h-6" />
+            </a>
+            <a 
+              href="https://t.me/PeporitaOnSolana" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <FaTelegram className="w-6 h-6" />
+            </a>
+          </div>
         </div>
       </div>
 
