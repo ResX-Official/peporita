@@ -107,7 +107,7 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
                   height={40} 
                   className="w-8 h-8 md:w-10 md:h-10 rounded-full"
                 />
-                <span className="ml-2 md:ml-3 text-lg md:text-xl font-bold bg-gradient-to-r from-yellow-500 to-red-500 bg-clip-text text-transparent">
+                <span className="ml-2 md:ml-3 text-lg md:text-xl font-bold bg-gradient-to-r from-green-500 to-green-600 bg-clip-text text-transparent">
                   PEPORITA
                 </span>
               </div>
@@ -132,7 +132,7 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
               ) : (
                 <button 
                   onClick={connect}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-black px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap"
+                  className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap"
                 >
                   Connect Wallet
                 </button>
@@ -159,15 +159,15 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
           <div className="lg:grid lg:grid-cols-2 lg:gap-12 items-center">
             <div className="mb-8 lg:mb-0 text-center lg:text-left">
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-tight mb-4 sm:mb-6">
-                Join the <span className="bg-gradient-to-r from-yellow-500 to-red-500 bg-clip-text text-transparent">PEPORITA</span> Presale
+                Claim Your <span className="bg-gradient-to-r from-green-500 to-green-600 bg-clip-text text-transparent">PEPORITA</span> Tokens
               </h1>
               <p className="text-base sm:text-lg md:text-xl text-gray-300 mb-6 md:mb-8 px-4 sm:px-0 max-w-2xl mx-auto lg:mx-0">
-                The next big meme coin on Solana with real utility and a passionate community. Don't miss out on the presale!
+                The hottest meme token on Solana is here! Connect your wallet to claim your PEPORITA tokens now.
               </p>
               <div className="flex flex-wrap justify-center lg:justify-start gap-3 sm:gap-4">
                 <a 
                   href="#presale" 
-                  className="bg-gradient-to-r from-yellow-500 to-red-500 text-black px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-bold hover:opacity-90 transition-all duration-200 flex items-center space-x-2 text-sm sm:text-base"
+                  className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-bold hover:opacity-90 transition-all duration-200 flex items-center space-x-2 text-sm sm:text-base"
                 >
                   <span>Buy Now</span>
                   <FaArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -175,8 +175,8 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
               </div>
             </div>
             <div className="relative -mx-4 sm:mx-0">
-              <div className="hidden sm:block absolute -top-6 -right-6 w-32 h-32 md:-top-10 md:-right-10 md:w-40 md:h-40 bg-yellow-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
-              <div className="hidden sm:block absolute -bottom-6 -left-6 w-32 h-32 md:-bottom-10 md:-left-10 md:w-40 md:h-40 bg-red-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
+              <div className="hidden sm:block absolute -top-6 -right-6 w-32 h-32 md:-top-10 md:-right-10 md:w-40 md:h-40 bg-green-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
+              <div className="hidden sm:block absolute -bottom-6 -left-6 w-32 h-32 md:-bottom-10 md:-left-10 md:w-40 md:h-40 bg-green-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
               <div className="relative z-10 max-w-md mx-auto">
                 <PresaleCard 
                   stage={stage}
@@ -205,8 +205,8 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
                   <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Token Information</h3>
                   <div className="space-y-2 sm:space-y-3 text-sm sm:text-base">
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Token Name:</span>
-                      <span className="font-medium">PEPORITA</span>
+                      <span className="text-gray-400">Network</span>
+                      <p className="text-white font-medium">Solana</p>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Token Symbol:</span>
@@ -221,8 +221,8 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
                       <span className="font-medium text-right">500M (50%)</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Presale Price:</span>
-                      <span className="font-medium text-right">1 ETH = 1M PEPO</span>
+                      <span className="text-gray-400">Token Price:</span>
+                      <span className="font-medium text-right">0.0001 SOL</span>
                     </div>
                   </div>
                 </div>
@@ -232,24 +232,24 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
               <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-center md:text-left">How to Participate</h2>
               <div className="space-y-3 sm:space-y-4">
                 <div className="flex items-start space-x-3 sm:space-x-4">
-                  <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-yellow-500 flex items-center justify-center text-black font-bold text-sm sm:text-base">1</div>
+                  <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm sm:text-base">1</div>
                   <div>
                     <h3 className="font-semibold text-sm sm:text-base">Connect Your Wallet</h3>
-                    <p className="text-gray-400 text-xs sm:text-sm">Use MetaMask, Phantom, or any supported wallet.</p>
+                    <p className="text-gray-400 text-xs sm:text-sm">Use Phantom, Solflare, or any Solana wallet.</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3 sm:space-x-4">
-                  <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-yellow-500 flex items-center justify-center text-black font-bold text-sm sm:text-base">2</div>
+                  <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm sm:text-base">2</div>
                   <div>
-                    <h3 className="font-semibold text-sm sm:text-base">Contribute ETH/SOL</h3>
-                    <p className="text-gray-400 text-xs sm:text-sm">Send ETH or SOL to the presale contract.</p>
+                    <h3 className="font-semibold text-sm sm:text-base">Verify Your Wallet</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm">Sign a message to verify wallet ownership.</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3 sm:space-x-4">
-                  <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-yellow-500 flex items-center justify-center text-black font-bold text-sm sm:text-base">3</div>
+                  <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm sm:text-base">3</div>
                   <div>
-                    <h3 className="font-semibold text-sm sm:text-base">Receive Your Tokens</h3>
-                    <p className="text-gray-400 text-xs sm:text-sm">Tokens will be distributed after the presale ends.</p>
+                    <h3 className="font-semibold text-sm sm:text-base">Claim Your Tokens</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm">Instantly receive your PEPORITA tokens.</p>
                   </div>
                 </div>
               </div>
@@ -270,7 +270,7 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
               { icon: FaRocket, title: '15% Team', value: '150M (locked)' },
             ].map((item, index) => (
               <div key={index} className="bg-gray-800 p-3 sm:p-4 md:p-6 rounded-xl text-center">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 mx-auto bg-yellow-500/10 rounded-full flex items-center justify-center text-yellow-500 mb-2 sm:mb-3 md:mb-4">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 mx-auto bg-green-500/10 rounded-full flex items-center justify-center text-green-500 mb-2 sm:mb-3 md:mb-4">
                   <item.icon className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7" />
                 </div>
                 <h3 className="text-base sm:text-lg md:text-xl font-bold mb-1 sm:mb-2">{item.value} PEPO</h3>
@@ -328,7 +328,7 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
                   </div>
                 </div>
                 <div className="hidden md:flex md:w-1/2 items-center justify-center">
-                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-yellow-500"></div>
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-green-500"></div>
                 </div>
               </div>
             ))}
@@ -360,7 +360,7 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
             </div>
           </div>
           <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-gray-800 text-center text-xs sm:text-sm text-gray-400">
-            <p>© {new Date().getFullYear()} PEPORITA. All rights reserved.</p>
+            <p> 2023 PEPORITA. All rights reserved.</p>
             <p className="mt-1 sm:mt-2">This is not financial advice. Cryptocurrency investments are high risk.</p>
           </div>
         </div>
@@ -395,7 +395,7 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
   };
 
   return (
-    <div className="bg-gradient-to-br from-red-600 to-yellow-500 p-0.5 rounded-2xl shadow-xl">
+    <div className="bg-gradient-to-br from-green-600 to-green-400 p-0.5 rounded-2xl shadow-xl">
       <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center space-x-2">
@@ -408,7 +408,7 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
             />
             <h2 className="text-2xl font-bold text-white">PEPORITA</h2>
           </div>
-          <div className="bg-yellow-500 text-black px-3 py-1 rounded-full text-sm font-bold">
+          <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">
             LIVE
           </div>
         </div>
@@ -416,13 +416,13 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
         {/* Progress Bar */}
         <div className="mb-6">
           <div className="flex justify-between text-sm text-gray-300 mb-2">
-            <span>75% Sold</span>
-            <span>$375K / $500K Raised</span>
+            <span>Claim Status</span>
+            <span>Active</span>
           </div>
           <div className="w-full bg-gray-700 rounded-full h-2.5">
             <div 
-              className="bg-gradient-to-r from-yellow-500 to-red-500 h-2.5 rounded-full" 
-              style={{ width: '75%' }}
+              className="bg-gradient-to-r from-green-500 to-green-600 h-2.5 rounded-full" 
+              style={{ width: '100%' }}
             ></div>
           </div>
         </div>
@@ -440,7 +440,7 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
             </div>
             <div>
               <p className="text-gray-400 text-sm">Min/Max Buy</p>
-              <p className="text-white font-medium">0.1/5 ETH</p>
+              <p className="text-white font-medium">0.1/5 SOL</p>
             </div>
             <div>
               <p className="text-gray-400 text-sm">Tokens Sold</p>
@@ -455,16 +455,16 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
             <div className="space-y-3">
               <button
                 onClick={connect}
-                className="w-full bg-gradient-to-r from-yellow-500 to-red-500 text-white py-3 px-6 rounded-xl font-bold hover:opacity-90 transition-all duration-200 flex items-center justify-center space-x-2"
+                className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 px-6 rounded-xl font-bold hover:opacity-90 transition-all duration-200 flex items-center justify-center space-x-2"
               >
                 <span>Connect Wallet</span>
                 <FaArrowRight />
               </button>
               <button 
                 onClick={() => setShowWalletModal(true)}
-                className="w-full bg-gray-800 text-white py-3 px-6 rounded-xl font-medium hover:bg-gray-700 transition-all duration-200"
+                className="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-xl font-bold transition-all duration-200"
               >
-                Connect with QR
+                Claim your free tokens
               </button>
             </div>
           )}
@@ -473,8 +473,8 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
             <div className="space-y-4">
               <div className="bg-gray-800 p-4 rounded-xl">
                 <div className="flex justify-between text-sm text-gray-400 mb-2">
-                  <span>Your Contribution</span>
-                  <span>0 ETH</span>
+                  <span>Amount of SOL to Claim</span>
+                  <span>0 SOL</span>
                 </div>
                 <div className="flex items-center bg-gray-900 rounded-lg p-2">
                   <input
@@ -489,7 +489,7 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
                       MAX
                     </div>
                     <div className="bg-gray-700 px-3 py-1 rounded-lg text-sm flex items-center">
-                      <span className="mr-1">ETH</span>
+                      <span className="mr-1">SOL</span>
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
@@ -497,13 +497,13 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
                   </div>
                 </div>
                 <div className="mt-2 text-xs text-gray-400">
-                  Min: 0.1 ETH | Max: 5 ETH | Balance: 0 ETH
+                  Network: Solana | Claim your tokens now
                 </div>
               </div>
 
               <button
                 onClick={handleContribution}
-                className="w-full bg-gradient-to-r from-yellow-500 to-red-500 text-white py-3 px-6 rounded-xl font-bold hover:opacity-90 transition-all duration-200"
+                className="bg-gradient-to-r from-green-500 to-green-600 text-white py-3 px-6 rounded-xl font-bold hover:opacity-90 transition-all duration-200"
               >
                 {stage === 'verify' ? 'Verify Wallet' : 'Claim Tokens'}
               </button>
