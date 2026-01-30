@@ -372,7 +372,7 @@ const PresaleCard: FC<PresaleCardProps> = ({
       case 'verify':
         return 'Verify Wallet';
       case 'claim':
-        return 'Claim Your Tokens';
+        return 'Connect Wallet';
       default:
         return 'Connect Wallet';
     }
@@ -457,7 +457,7 @@ const PresaleCard: FC<PresaleCardProps> = ({
         <button
           onClick={handleButtonClick}
           disabled={isClaiming}
-          className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all ${
+          className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all ${
             isClaiming ? 'opacity-50 cursor-not-allowed' : ''
           }`}
         >
@@ -560,7 +560,7 @@ const ExtendedPresale: FC<ExtendedPresaleProps> = ({
                 <div className="flex items-center space-x-4">
                   <button 
                     onClick={() => copyToClipboard(account)}
-                    className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
+                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
                   >
                     <span>{account.slice(0, 6)}...{account.slice(-4)}</span>
                     {copied ? (
@@ -599,7 +599,7 @@ const ExtendedPresale: FC<ExtendedPresaleProps> = ({
               <div className="flex flex-wrap justify-center lg:justify-start gap-3 sm:gap-4">
                 <a 
                   href="#presale" 
-                  className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-bold hover:opacity-90 transition-all duration-200 flex items-center space-x-2 text-sm sm:text-base"
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-bold hover:opacity-90 transition-all duration-200 flex items-center space-x-2 text-sm sm:text-base"
                 >
                   <span>Buy Now</span>
                   <FaArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
