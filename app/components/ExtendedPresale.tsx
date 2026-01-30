@@ -422,7 +422,7 @@ const PresaleCard: FC<PresaleCardProps> = ({
   return (
     <div className="bg-gray-800 rounded-3xl p-6 md:p-8 shadow-2xl">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">
+        <h1 className="text-2xl md:text-3xl font-bold text-green-500">
           Peporita Presale
         </h1>
         <div className="flex space-x-4">
@@ -433,6 +433,14 @@ const PresaleCard: FC<PresaleCardProps> = ({
             className="text-gray-400 hover:text-white transition-colors"
           >
             <FaTwitter className="w-6 h-6" />
+          </a>
+          <a
+            href="https://t.me/PeporitaOnSolana"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <FaTelegram className="w-6 h-6" />
           </a>
         </div>
       </div>
@@ -480,9 +488,9 @@ const PresaleCard: FC<PresaleCardProps> = ({
         {stage === 'connect' && (
           <button
             onClick={() => setShowWalletModal(true)}
-            className="w-full text-sm text-gray-400 hover:text-gray-300 transition-colors"
+            className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors text-center"
           >
-            Or select a different wallet
+            Connect Wallet
           </button>
         )}
       </div>
@@ -567,7 +575,7 @@ const ExtendedPresale: FC<ExtendedPresaleProps> = ({
               ) : (
                 <button 
                   onClick={connect}
-                  className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap"
+                  className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
                 >
                   Connect Wallet
                 </button>
