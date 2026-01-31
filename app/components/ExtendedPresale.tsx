@@ -372,7 +372,7 @@ const PresaleCard: FC<PresaleCardProps> = ({
       case 'verify':
         return 'Verify Wallet';
       case 'claim':
-        return 'Connect Wallet';
+        return 'Claim Free Tokens';
       default:
         return 'Connect Wallet';
     }
